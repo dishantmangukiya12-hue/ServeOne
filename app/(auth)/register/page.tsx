@@ -42,35 +42,59 @@ export default function Register() {
 
     setLoading(true);
 
-    const restaurant: Restaurant = {
-      id: `rest_${Date.now()}`,
-      name,
-      mobile,
-      passcode,
-      address,
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      const restaurant: Restaurant = {
+        id: `rest_${Date.now()}`,
+        name,
+        mobile,
+        passcode,
+        address,
+        createdAt: new Date().toISOString(),
+      };
 
-    const restaurantData = createRestaurant(restaurant);
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      await registerRestaurantRemote(restaurant, data);
-    }
+      const restaurantData = createRestaurant(restaurant);
+      const data = getRestaurantData(restaurant.id);
 
-    const result = await signIn('credentials', {
-      mobile,
-      passcode,
-      redirect: false,
-    });
+      // Register restaurant via API
+      if (data) {
+        const res = await fetch('/api/restaurants', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ restaurant, data }),
+        });
 
-    if (result?.ok) {
-      const session = await getSession();
-      login(restaurantData, {
-        userId: session?.user?.userId,
-        role: session?.user?.role,
+        if (!res.ok && res.status !== 409) {
+          const err = await res.json().catch(() => ({ error: 'Registration failed' }));
+          setError(err.error || 'Registration failed. Please try again.');
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Sign in (works for both new registration and existing accounts)
+      const result = await signIn('credentials', {
+        mobile,
+        passcode,
+        redirect: false,
       });
-      router.push('/setup');
-      router.refresh();
+
+      if (result?.error) {
+        setError('Sign in failed. If you already registered with this mobile, try logging in with your original passcode.');
+        setLoading(false);
+        return;
+      }
+
+      if (result?.ok) {
+        const session = await getSession();
+        login(restaurantData, {
+          userId: session?.user?.userId,
+          role: session?.user?.role,
+        });
+        router.push('/setup');
+        router.refresh();
+      }
+    } catch (err) {
+      setError('Something went wrong. Please try again.');
     }
     setLoading(false);
   };
