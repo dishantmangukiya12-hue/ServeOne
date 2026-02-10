@@ -205,8 +205,8 @@ const features = [
   },
   {
     icon: Receipt,
-    title: "GST-Ready Billing",
-    description: "CGST + SGST split, service charge, custom receipt headers with GSTIN. Print to thermal or A4. Fully compliant.",
+    title: "Tax-Compliant Billing",
+    description: "Configurable tax rates and breakdowns, service charge, custom receipt headers. Print to thermal or A4. Fully compliant.",
     color: "from-amber-500 to-amber-600",
   },
   {
@@ -243,21 +243,21 @@ const steps = [
 
 const testimonials = [
   {
-    name: "Rajesh Kumar",
-    role: "Owner, Spice Garden",
-    quote: "DineFlow replaced 3 different apps we were using. The QR ordering alone saved us hiring an extra waiter during peak hours.",
+    name: "Carlos Mendez",
+    role: "Owner, La Mesa Kitchen",
+    quote: "ServeOne replaced 3 different apps we were using. The QR ordering alone saved us hiring an extra server during peak hours.",
     rating: 5,
   },
   {
-    name: "Priya Sharma",
-    role: "Manager, The Urban Plate",
+    name: "Sarah Chen",
+    role: "Manager, The Noodle Bar",
     quote: "The kitchen display system is a game-changer. No more lost order tickets. Our food delivery time dropped by 40%.",
     rating: 5,
   },
   {
-    name: "Mohammed Ismail",
-    role: "Owner, Biryani House",
-    quote: "Finally, a system that understands CGST and SGST. The inventory tracking with recipe linking saved us lakhs in food waste.",
+    name: "David Okonkwo",
+    role: "Owner, Savanna Grill",
+    quote: "The inventory tracking with recipe linking cut our food waste costs significantly. We finally know where every dollar goes.",
     rating: 5,
   },
 ];
@@ -429,10 +429,10 @@ export default function LandingPage() {
             transition={{ duration: 0.7, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
             className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight text-foreground leading-[1.05]"
           >
-            Run your restaurant
+            Run your entire restaurant
             <br />
             <span className="bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 bg-clip-text text-transparent">
-              like a pro
+              from one screen
             </span>
           </motion.h1>
 
@@ -444,7 +444,7 @@ export default function LandingPage() {
             className="mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed"
           >
             Orders, kitchen display, QR menus, inventory, billing, loyalty — everything in one platform.
-            Built for Indian restaurants. Works offline. From <span className="text-foreground font-medium">₹0/month</span>.
+            Works offline. <span className="text-foreground font-medium">Free to start</span>.
           </motion.p>
 
           {/* CTA Buttons */}
@@ -516,7 +516,7 @@ export default function LandingPage() {
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-semibold text-foreground">Today&apos;s Revenue</p>
-                  <p className="text-xs text-emerald-600 font-medium">₹42,580 ↑ 12%</p>
+                  <p className="text-xs text-emerald-600 font-medium">+12% from yesterday</p>
                 </div>
               </div>
             </FloatingCard>
@@ -543,7 +543,7 @@ export default function LandingPage() {
               One platform. Every tool.
             </h2>
             <p className="mt-4 text-muted-foreground text-lg max-w-2xl mx-auto">
-              Stop juggling multiple apps. DineFlow replaces your POS, kitchen printer, inventory sheet, and CRM — all in one place.
+              Stop juggling multiple apps. ServeOne replaces your POS, kitchen printer, inventory sheet, and CRM — all in one place.
             </p>
           </AnimatedSection>
 
@@ -604,7 +604,7 @@ export default function LandingPage() {
                       <span className="text-xs font-semibold">Table 5 Menu</span>
                     </div>
                     <div className="space-y-2">
-                      {["Butter Chicken", "Garlic Naan", "Dal Makhani"].map((item, i) => (
+                      {["Margherita Pizza", "Caesar Salad", "Grilled Salmon"].map((item, i) => (
                         <div key={item} className="flex items-center justify-between">
                           <span className="text-xs text-muted-foreground">{item}</span>
                           <motion.div
@@ -684,7 +684,7 @@ export default function LandingPage() {
             <AnimatedSection>
               <p className="text-sm font-semibold text-violet-600 uppercase tracking-wider mb-3">All Channels, One Place</p>
               <h3 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight mb-4">
-                Dine-in. Delivery. Swiggy. Zomato.
+                Dine-in. Delivery. Online orders.
               </h3>
               <p className="text-muted-foreground leading-relaxed mb-6">
                 Track every order source separately. Know exactly how much revenue comes from dine-in vs aggregators. One dashboard, every channel. No more switching between apps.
@@ -705,10 +705,9 @@ export default function LandingPage() {
                 <div className="space-y-3 w-full max-w-xs">
                   {[
                     { channel: "Dine-In", pct: 45, color: "bg-emerald-500" },
-                    { channel: "Take-Away", pct: 20, color: "bg-blue-500" },
-                    { channel: "Swiggy", pct: 18, color: "bg-orange-500" },
-                    { channel: "Zomato", pct: 12, color: "bg-red-500" },
-                    { channel: "Delivery", pct: 5, color: "bg-violet-500" },
+                    { channel: "Take-Away", pct: 25, color: "bg-blue-500" },
+                    { channel: "Delivery App", pct: 18, color: "bg-orange-500" },
+                    { channel: "Online", pct: 12, color: "bg-violet-500" },
                   ].map((ch, i) => (
                     <motion.div
                       key={ch.channel}
@@ -770,13 +769,13 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ====== WHY DINEFLOW ====== */}
+      {/* ====== WHY SERVEONE ====== */}
       <section className="py-24 bg-muted/20">
         <div className="max-w-6xl mx-auto px-6">
           <AnimatedSection className="text-center mb-16">
             <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">Built different</p>
             <h2 className="text-3xl md:text-5xl font-bold text-foreground tracking-tight">
-              Why restaurants choose DineFlow
+              Why restaurants choose ServeOne
             </h2>
           </AnimatedSection>
 
@@ -784,7 +783,7 @@ export default function LandingPage() {
             {[
               { icon: Smartphone, title: "Works Offline", description: "Data stored locally. Orders don't stop when WiFi does." },
               { icon: Shield, title: "Bank-Level Security", description: "Encrypted passwords, rate limiting, session auth, data isolation." },
-              { icon: Globe, title: "GST Compliant", description: "CGST + SGST split, GSTIN on receipts, service charge support." },
+              { icon: Globe, title: "Tax Ready", description: "Configurable tax structures, receipt formatting, and service charge support." },
               { icon: Zap, title: "Blazing Fast", description: "Under 2-second load times. No lag during rush hours." },
             ].map((item, i) => (
               <AnimatedSection key={item.title} delay={i * 0.1}>
@@ -929,7 +928,7 @@ export default function LandingPage() {
               Ready to transform your restaurant?
             </h2>
             <p className="mt-4 text-lg text-emerald-100/80">
-              Join hundreds of restaurants already using DineFlow. Start your {FREE_TRIAL_DAYS}-day free trial today — no credit card required.
+              Join restaurants already using ServeOne. Start your {FREE_TRIAL_DAYS}-day free trial today — no credit card required.
             </p>
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link

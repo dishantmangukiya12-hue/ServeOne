@@ -70,7 +70,7 @@ export default function Orders() {
   const [cart, setCart] = useState<CartItem[]>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const saved = sessionStorage.getItem('menew_cart');
+        const saved = sessionStorage.getItem('serveone_cart');
         return saved ? JSON.parse(saved) : [];
       } catch { return []; }
     }
@@ -130,9 +130,9 @@ export default function Orders() {
   // Persist cart to sessionStorage
   useEffect(() => {
     if (cart.length > 0) {
-      sessionStorage.setItem('menew_cart', JSON.stringify(cart));
+      sessionStorage.setItem('serveone_cart', JSON.stringify(cart));
     } else {
-      sessionStorage.removeItem('menew_cart');
+      sessionStorage.removeItem('serveone_cart');
     }
   }, [cart]);
 
@@ -315,7 +315,7 @@ export default function Orders() {
   // Table handlers
   const handleTableClick = (table: Table) => {
     // Clear any stale cart from sessionStorage when switching tables
-    sessionStorage.removeItem('menew_cart');
+    sessionStorage.removeItem('serveone_cart');
     if (table.status === 'available') {
       setSelectedTable(table);
       setCurrentOrder(null);

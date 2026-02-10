@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy - DineFlow",
-  description: "Privacy Policy for DineFlow restaurant management platform.",
+  title: "Privacy Policy - ServeOne",
+  description: "Privacy Policy for ServeOne restaurant management platform.",
 };
 
 export default function PrivacyPage() {
@@ -15,7 +15,7 @@ export default function PrivacyPage() {
         <section>
           <h2 className="text-xl font-semibold mt-8 mb-3">1. Introduction</h2>
           <p className="text-muted-foreground leading-relaxed">
-            DineFlow Technologies (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) is committed to protecting your privacy. This Privacy Policy explains how we collect, use, store, and protect your personal information when you use the DineFlow platform (&quot;Service&quot;). By using the Service, you consent to the practices described in this policy.
+            ServeOne (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) is committed to protecting your privacy. This Privacy Policy explains how we collect, use, store, and protect your personal information when you use the ServeOne platform (&quot;Service&quot;). By using the Service, you consent to the practices described in this policy.
           </p>
         </section>
 
@@ -27,7 +27,7 @@ export default function PrivacyPage() {
             <li><strong className="text-foreground">Account Information:</strong> Restaurant name, owner name, mobile number, email address, and business address</li>
             <li><strong className="text-foreground">Staff Information:</strong> Staff names, mobile numbers, email addresses, and roles</li>
             <li><strong className="text-foreground">Business Data:</strong> Menu items, prices, orders, table configurations, inventory records, expense records, and customer information</li>
-            <li><strong className="text-foreground">Payment Information:</strong> Subscription plan and billing details (processed securely by Razorpay; we do not store credit/debit card numbers)</li>
+            <li><strong className="text-foreground">Payment Information:</strong> Subscription plan and billing details (processed securely by our payment processor; we do not store credit/debit card numbers)</li>
           </ul>
 
           <h3 className="text-lg font-medium mt-4 mb-2">2.2 Information Collected Automatically</h3>
@@ -80,7 +80,7 @@ export default function PrivacyPage() {
             We use the following third-party services that may process your data:
           </p>
           <ul className="list-disc pl-6 text-muted-foreground space-y-1 mt-2">
-            <li><strong className="text-foreground">Razorpay:</strong> Payment processing for subscriptions. Razorpay&apos;s privacy policy applies to payment data they handle.</li>
+            <li><strong className="text-foreground">Payment Processor:</strong> Payment processing for subscriptions. The payment processor&apos;s privacy policy applies to payment data they handle.</li>
             <li><strong className="text-foreground">Vercel:</strong> Application hosting and deployment.</li>
           </ul>
           <p className="text-muted-foreground leading-relaxed mt-2">
@@ -137,7 +137,7 @@ export default function PrivacyPage() {
             For privacy-related questions or concerns, please contact:
           </p>
           <p className="text-muted-foreground mt-2">
-            <strong className="text-foreground">DineFlow Technologies</strong><br />
+            <strong className="text-foreground">ServeOne</strong><br />
             Email: privacy@dineflow.in<br />
             Support: support@dineflow.in
           </p>

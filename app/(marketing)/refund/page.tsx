@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Refund Policy - DineFlow",
-  description: "Refund and Cancellation Policy for DineFlow restaurant management platform.",
+  title: "Refund Policy - ServeOne",
+  description: "Refund and Cancellation Policy for ServeOne restaurant management platform.",
 };
 
 export default function RefundPage() {
@@ -15,7 +15,7 @@ export default function RefundPage() {
         <section>
           <h2 className="text-xl font-semibold mt-8 mb-3">1. Overview</h2>
           <p className="text-muted-foreground leading-relaxed">
-            This Refund &amp; Cancellation Policy outlines the terms for subscription cancellations and refunds on the DineFlow platform. We aim to be fair and transparent in all billing matters.
+            This Refund &amp; Cancellation Policy outlines the terms for subscription cancellations and refunds on the ServeOne platform. We aim to be fair and transparent in all billing matters.
           </p>
         </section>
 
@@ -86,7 +86,7 @@ export default function RefundPage() {
         <section>
           <h2 className="text-xl font-semibold mt-8 mb-3">6. Refund Processing</h2>
           <p className="text-muted-foreground leading-relaxed">
-            Approved refunds will be processed within 5-7 business days. The refund will be credited to the original payment method used for the subscription. Razorpay processes the actual refund transaction, and the timeline may vary based on your bank or payment provider.
+            Approved refunds will be processed within 5-7 business days. The refund will be credited to the original payment method used for the subscription. The payment provider processes the actual refund transaction, and the timeline may vary based on your bank or payment provider.
           </p>
         </section>
 
@@ -113,7 +113,7 @@ export default function RefundPage() {
             For billing or refund queries, please contact:
           </p>
           <p className="text-muted-foreground mt-2">
-            <strong className="text-foreground">DineFlow Technologies</strong><br />
+            <strong className="text-foreground">ServeOne</strong><br />
             Email: billing@dineflow.in<br />
             Support: support@dineflow.in
           </p>

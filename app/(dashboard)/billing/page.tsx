@@ -116,7 +116,7 @@ export default function BillingPage() {
       const options = {
         key: razorpayKeyId,
         subscription_id: subscriptionId,
-        name: "DineFlow",
+        name: "ServeOne",
         description: `${PLANS[planId].name} Plan - Monthly`,
         handler: async (response: any) => {
           // 3. Verify payment on server

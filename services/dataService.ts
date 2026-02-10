@@ -5,8 +5,8 @@
 
 import { toast } from "sonner";
 
-const STORAGE_KEY = 'menew_restaurant_data';
-const AUTH_KEY = 'menew_auth';
+const STORAGE_KEY = 'serveone_restaurant_data';
+const AUTH_KEY = 'serveone_auth';
 
 export interface Restaurant {
   id: string;

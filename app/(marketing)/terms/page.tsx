@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Terms of Service - DineFlow",
-  description: "Terms of Service for DineFlow restaurant management platform.",
+  title: "Terms of Service - ServeOne",
+  description: "Terms of Service for ServeOne restaurant management platform.",
 };
 
 export default function TermsPage() {
@@ -15,14 +15,14 @@ export default function TermsPage() {
         <section>
           <h2 className="text-xl font-semibold mt-8 mb-3">1. Acceptance of Terms</h2>
           <p className="text-muted-foreground leading-relaxed">
-            By accessing or using the DineFlow platform (&quot;Service&quot;), you agree to be bound by these Terms of Service (&quot;Terms&quot;). If you do not agree to these Terms, you may not access or use the Service. These Terms apply to all users, including restaurant owners, staff members, and end customers who interact with the platform.
+            By accessing or using the ServeOne platform (&quot;Service&quot;), you agree to be bound by these Terms of Service (&quot;Terms&quot;). If you do not agree to these Terms, you may not access or use the Service. These Terms apply to all users, including restaurant owners, staff members, and end customers who interact with the platform.
           </p>
         </section>
 
         <section>
           <h2 className="text-xl font-semibold mt-8 mb-3">2. Description of Service</h2>
           <p className="text-muted-foreground leading-relaxed">
-            DineFlow is a cloud-based restaurant management platform that provides tools for order management, menu management, table management, QR ordering, kitchen display systems, inventory tracking, billing, reporting, customer management, and related services. The Service is provided on a subscription basis with different pricing tiers.
+            ServeOne is a cloud-based restaurant management platform that provides tools for order management, menu management, table management, QR ordering, kitchen display systems, inventory tracking, billing, reporting, customer management, and related services. The Service is provided on a subscription basis with different pricing tiers.
           </p>
         </section>
 
@@ -36,7 +36,7 @@ export default function TermsPage() {
         <section>
           <h2 className="text-xl font-semibold mt-8 mb-3">4. Subscription Plans and Payment</h2>
           <p className="text-muted-foreground leading-relaxed">
-            DineFlow offers multiple subscription plans: Starter (free), Pro, and Enterprise. Paid plans are billed monthly through Razorpay. By subscribing to a paid plan, you authorize us to charge your payment method on a recurring monthly basis. All prices are in Indian Rupees (INR) and are exclusive of applicable taxes (GST).
+            ServeOne offers multiple subscription plans: Starter (free), Pro, and Enterprise. Paid plans are billed monthly through Razorpay. By subscribing to a paid plan, you authorize us to charge your payment method on a recurring monthly basis. All prices are in Indian Rupees (INR) and are exclusive of applicable taxes (GST).
           </p>
           <p className="text-muted-foreground leading-relaxed mt-2">
             New accounts receive a 14-day free trial of the Pro plan. After the trial period, your account will be downgraded to the Starter plan unless you subscribe to a paid plan. You may upgrade, downgrade, or cancel your subscription at any time.
@@ -60,7 +60,7 @@ export default function TermsPage() {
         <section>
           <h2 className="text-xl font-semibold mt-8 mb-3">6. Data Ownership</h2>
           <p className="text-muted-foreground leading-relaxed">
-            You retain full ownership of all data you input into the Service, including menu items, orders, customer records, financial data, and any other business information. DineFlow does not claim ownership over your data. You may export your data at any time using the built-in export functionality.
+            You retain full ownership of all data you input into the Service, including menu items, orders, customer records, financial data, and any other business information. ServeOne does not claim ownership over your data. You may export your data at any time using the built-in export functionality.
           </p>
         </section>
 
@@ -74,7 +74,7 @@ export default function TermsPage() {
         <section>
           <h2 className="text-xl font-semibold mt-8 mb-3">8. Limitation of Liability</h2>
           <p className="text-muted-foreground leading-relaxed">
-            To the maximum extent permitted by law, DineFlow Technologies shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or business opportunities, arising out of or related to your use of the Service. Our total liability shall not exceed the amount you paid to us in the twelve (12) months preceding the claim.
+            To the maximum extent permitted by law, ServeOne shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or business opportunities, arising out of or related to your use of the Service. Our total liability shall not exceed the amount you paid to us in the twelve (12) months preceding the claim.
           </p>
         </section>
 
@@ -95,7 +95,7 @@ export default function TermsPage() {
         <section>
           <h2 className="text-xl font-semibold mt-8 mb-3">11. Governing Law</h2>
           <p className="text-muted-foreground leading-relaxed">
-            These Terms shall be governed by and construed in accordance with the laws of India. Any disputes arising from these Terms shall be subject to the exclusive jurisdiction of the courts in India.
+            These Terms shall be governed by and construed in accordance with applicable laws. Any disputes arising from these Terms shall be resolved through good-faith negotiation or, if necessary, through binding arbitration or the competent courts of the jurisdiction where ServeOne operates.
           </p>
         </section>
 
@@ -105,7 +105,7 @@ export default function TermsPage() {
             For questions about these Terms, please contact us at:
           </p>
           <p className="text-muted-foreground mt-2">
-            <strong className="text-foreground">DineFlow Technologies</strong><br />
+            <strong className="text-foreground">ServeOne</strong><br />
             Email: legal@dineflow.in<br />
             Support: support@dineflow.in
           </p>

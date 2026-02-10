@@ -12,7 +12,7 @@ interface ThemeProviderProps {
 export function ThemeProvider({
   children,
   defaultTheme = "system",
-  storageKey = "dineflow-theme",
+  storageKey = "serveone-theme",
   ...props
 }: ThemeProviderProps) {
   return (

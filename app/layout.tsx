@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "DineFlow - Restaurant Management System",
-  description: "All-in-one restaurant management suite.",
+  title: "ServeOne - All-in-One Restaurant Platform",
+  description: "Manage orders, kitchen display, QR menus, inventory, and analytics — all from one platform.",
 };
 
 export default function RootLayout({

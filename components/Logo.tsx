@@ -26,14 +26,22 @@ export function Logo({ size = 'md', collapsed = false, restaurantName }: LogoPro
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         >
-          <path d="M3 3h18v18H3zM9 3v18M15 3v18M3 9h18M3 15h18" />
+          {/* Cloche dome */}
+          <path d="M12 3C7 3 3 7.5 3 13h18c0-5.5-4-10-9-10z" />
+          {/* Handle knob */}
+          <circle cx="12" cy="3" r="1" fill="currentColor" />
+          {/* Plate/base */}
+          <path d="M2 13h20" />
+          <path d="M4 13c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2" />
         </svg>
       </div>
       {!collapsed && (
         <div className="overflow-hidden">
           <span className="text-lg font-semibold text-foreground block truncate">
-            DineFlow
+            ServeOne
           </span>
           {restaurantName && (
             <span className="text-xs text-muted-foreground truncate block">

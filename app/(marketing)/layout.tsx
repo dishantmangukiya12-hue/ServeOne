@@ -12,9 +12,9 @@ export default function MarketingLayout({
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <span className="text-white font-bold text-base">D</span>
+              <span className="text-white font-bold text-base">S</span>
             </div>
-            <span className="font-bold text-xl text-foreground tracking-tight">DineFlow</span>
+            <span className="font-bold text-xl text-foreground tracking-tight">ServeOne</span>
           </Link>
           <nav className="hidden md:flex items-center gap-8">
             <Link href="/#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</Link>
@@ -45,12 +45,12 @@ export default function MarketingLayout({
             <div>
               <div className="flex items-center gap-2.5 mb-4">
                 <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">D</span>
+                  <span className="text-white font-bold text-sm">S</span>
                 </div>
-                <span className="font-bold text-foreground">DineFlow</span>
+                <span className="font-bold text-foreground">ServeOne</span>
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                All-in-one restaurant management platform built for Indian restaurants.
+                All-in-one restaurant management platform.
               </p>
             </div>
             <div>
@@ -73,14 +73,13 @@ export default function MarketingLayout({
               <h4 className="font-semibold text-sm text-foreground mb-4">Contact</h4>
               <div className="space-y-2.5">
                 <span className="block text-sm text-muted-foreground">support@dineflow.in</span>
-                <span className="block text-sm text-muted-foreground">DineFlow Technologies</span>
-                <span className="block text-sm text-muted-foreground">Made in India</span>
+                <span className="block text-sm text-muted-foreground">ServeOne</span>
               </div>
             </div>
           </div>
           <div className="border-t pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-sm text-muted-foreground">
-              &copy; {new Date().getFullYear()} DineFlow Technologies. All rights reserved.
+              &copy; {new Date().getFullYear()} ServeOne. All rights reserved.
             </p>
             <div className="flex items-center gap-6">
               <Link href="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Terms</Link>

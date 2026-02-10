@@ -10,7 +10,7 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <SessionProvider>
       <AuthProvider>
-        <ThemeProvider defaultTheme="system" storageKey="dineflow-theme">
+        <ThemeProvider defaultTheme="system" storageKey="serveone-theme">
           {children}
           <Toaster position="top-center" />
         </ThemeProvider>

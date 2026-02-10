@@ -74,7 +74,7 @@ const faqs = [
   },
   {
     q: "How does payment work?",
-    a: "We use Razorpay for secure recurring billing. Payments are in INR. You'll receive invoices via email. Cancel anytime from the billing page.",
+    a: "We use secure recurring billing via trusted payment providers. You'll receive invoices via email. Cancel anytime from the billing page.",
   },
   {
     q: "Is my data safe?",
@@ -82,7 +82,7 @@ const faqs = [
   },
   {
     q: "Do I need any special hardware?",
-    a: "No. DineFlow works on any device with a browser — phones, tablets, laptops. For printing, you can use any thermal printer (58mm or 80mm) or a regular A4 printer.",
+    a: "No. ServeOne works on any device with a browser — phones, tablets, laptops. For printing, you can use any thermal printer (58mm or 80mm) or a regular A4 printer.",
   },
 ];
 

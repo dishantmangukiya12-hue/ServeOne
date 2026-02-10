@@ -111,8 +111,8 @@ export default function Register() {
           <div className="bg-white/20 p-6 rounded-3xl w-fit mx-auto mb-8 backdrop-blur-sm">
             <Logo size="lg" collapsed />
           </div>
-          <h1 className="text-5xl font-semibold mb-4">DineFlow</h1>
-          <p className="text-xl text-emerald-100 mb-8">Restaurant Management System</p>
+          <h1 className="text-5xl font-semibold mb-4">ServeOne</h1>
+          <p className="text-xl text-emerald-100 mb-8">All-in-One Restaurant Platform</p>
           <div className="flex gap-8 justify-center text-emerald-100">
             <div className="text-center">
               <p className="text-3xl font-semibold">Fast</p>
