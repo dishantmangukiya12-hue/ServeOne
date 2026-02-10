@@ -20,6 +20,7 @@ import {
 import type { Order } from '@/services/dataService';
 import { getRestaurantData } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDataRefresh } from '@/hooks/useServerSync';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -81,6 +82,8 @@ export default function Home() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useDataRefresh(loadData);
 
   const profit = todayStats.sales - todayStats.expenses;
   const occupiedCount = tables.filter(t => t.status === 'occupied').length;

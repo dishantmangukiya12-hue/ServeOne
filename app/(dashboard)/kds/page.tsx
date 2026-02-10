@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDataRefresh } from '@/hooks/useServerSync';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChefHat, Clock, Volume2, VolumeX, CheckCircle2, Utensils, ArrowRight } from 'lucide-react';
@@ -61,6 +62,8 @@ export default function KDS() {
     const interval = setInterval(loadOrders, 5000); // Refresh every 5 seconds
     return () => clearInterval(interval);
   }, [loadOrders]);
+
+  useDataRefresh(loadOrders);
 
   const playNotificationSound = () => {
     // Create a simple beep sound

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDataRefresh } from '@/hooks/useServerSync';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Gift, Users, Search, Award } from 'lucide-react';
@@ -41,6 +42,7 @@ export default function Loyalty() {
       });
     }
   };
+  useDataRefresh(loadData);
 
   const handleToggleLoyalty = (enabled: boolean) => {
     if (!restaurant) return;

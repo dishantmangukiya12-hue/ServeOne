@@ -22,6 +22,8 @@ import { getRestaurantData, createReservation, updateReservation } from '@/servi
 
 import { toast } from 'sonner';
 
+import { useDataRefresh } from '@/hooks/useServerSync';
+
 
 
 interface WaitlistEntry {
@@ -127,6 +129,8 @@ export default function Reservations() {
     }
 
   };
+
+  useDataRefresh(loadData);
 
 
 

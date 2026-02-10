@@ -6,6 +6,8 @@ import { useState, useEffect, useCallback } from 'react';
 
 import { useAuth } from '@/contexts/AuthContext';
 
+import { useDataRefresh } from '@/hooks/useServerSync';
+
 import { Card } from '@/components/ui/card';
 
 import { Button } from '@/components/ui/button';
@@ -105,6 +107,8 @@ export default function Expenses() {
     loadData();
 
   }, [loadData, dateRange, customStartDate, customEndDate]);
+
+  useDataRefresh(loadData);
 
 
 

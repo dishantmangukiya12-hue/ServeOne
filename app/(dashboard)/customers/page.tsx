@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDataRefresh } from '@/hooks/useServerSync';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Search, Phone, Mail, ShoppingBag } from 'lucide-react';
@@ -59,6 +60,8 @@ export default function Customers() {
   useEffect(() => {
     loadCustomers();
   }, [loadCustomers]);
+
+  useDataRefresh(loadCustomers);
 
   const filteredCustomers = customers.filter(c =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

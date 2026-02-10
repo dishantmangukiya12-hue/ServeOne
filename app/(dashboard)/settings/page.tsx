@@ -24,6 +24,7 @@ import {
   getPrinters,
 } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDataRefresh } from '@/hooks/useServerSync';
 
 export default function Settings() {
   const router = useRouter();
@@ -95,6 +96,16 @@ export default function Settings() {
       }
     }
   }, [restaurant]);
+
+  const reloadSettings = () => {
+    if (!restaurant) return;
+    const data = getRestaurantData(restaurant.id);
+    if (data) {
+      setTables(data.tables);
+      setPrinters(data.printers);
+    }
+  };
+  useDataRefresh(reloadSettings);
 
   if (!restaurant) return null;
 

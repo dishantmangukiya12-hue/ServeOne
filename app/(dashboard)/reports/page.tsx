@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDataRefresh } from '@/hooks/useServerSync';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -140,6 +141,13 @@ export default function Reports() {
     const pendingOrders = getPendingPayments(restaurant.id);
     setOrders(pendingOrders);
   };
+  useDataRefresh(() => {
+    if (selectedReport === 'Pending Payments') {
+      loadPendingPayments();
+    } else {
+      loadOrders();
+    }
+  });
 
   const filterOrders = () => {
     let filtered = [...orders];

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDataRefresh } from '@/hooks/useServerSync';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +35,8 @@ export default function Users() {
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
+
+  useDataRefresh(loadUsers);
 
   const handleAddUser = () => {
     if (!restaurant) return;

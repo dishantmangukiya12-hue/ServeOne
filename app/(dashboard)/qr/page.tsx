@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDataRefresh } from '@/hooks/useServerSync';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { QrCode, Download, Copy, Check, Smartphone, Utensils, Info, Eye } from 'lucide-react';
@@ -56,6 +57,15 @@ export default function QROrdering() {
       setTables(data.tables.filter(t => !t.mergedWith));
     }
   }, [restaurant?.id]);
+
+  const loadTables = () => {
+    if (!restaurant) return;
+    const data = getRestaurantData(restaurant.id);
+    if (data) {
+      setTables(data.tables.filter(t => !t.mergedWith));
+    }
+  };
+  useDataRefresh(loadTables);
 
   const generateQRUrl = (tableNumber: string) => {
     if (!restaurant) return '';

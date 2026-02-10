@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { MenuItem, Table, Order, Restaurant } from '@/services/dataService';
 import { getRestaurantData } from '@/services/dataService';
 import { getPendingQROrderCount } from '@/components/QROrderManager';
+import { useDataRefresh } from '@/hooks/useServerSync';
 
 interface Category {
   id: string;
@@ -48,6 +49,9 @@ export function useOrdersData(restaurant: Restaurant | null) {
     if (!restaurant) return;
     loadData();
   }, [restaurant?.id, loadData]);
+
+  // Re-load when server sync updates localStorage
+  useDataRefresh(loadData);
 
   // Check for pending QR orders
   useEffect(() => {

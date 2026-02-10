@@ -11,6 +11,7 @@ import type { InventoryItem } from '@/services/dataService';
 import { getRestaurantData, saveRestaurantData, addInventoryItem, updateInventoryItem, deleteInventoryItem } from '@/services/dataService';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDataRefresh } from '@/hooks/useServerSync';
 
 export default function Inventory() {
   const { restaurant } = useAuth();
@@ -44,6 +45,7 @@ export default function Inventory() {
       });
     }
   };
+  useDataRefresh(loadData);
 
   if (!restaurant) return null;
 

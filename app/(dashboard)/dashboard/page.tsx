@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { useDataRefresh } from '@/hooks/useServerSync';
 
 import { Card } from '@/components/ui/card';
 
@@ -501,6 +502,9 @@ export default function Dashboard() {
     loadDashboardData();
 
   }, [loadDashboardData]);
+
+  // Re-load when server sync brings new data from another device
+  useDataRefresh(loadDashboardData);
 
 
 

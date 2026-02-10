@@ -303,15 +303,30 @@ const saveRestaurantDataLocal = (restaurantId: string, restaurantData: Restauran
 };
 
 const syncRestaurantData = async (restaurantId: string, restaurantData: RestaurantData) => {
-  try {
-    await fetch(`/api/restaurant-store/${restaurantId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: restaurantData }),
-    });
-  } catch {
-    // Ignore sync errors (offline/local only)
+  const maxRetries = 3;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const res = await fetch(`/api/restaurant-store/${restaurantId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: restaurantData }),
+      });
+      if (res.ok) return; // Success
+      // Auth errors - don't retry, session might be expired
+      if (res.status === 401 || res.status === 403) {
+        console.warn(`Sync auth error (${res.status}) - session may have expired`);
+        return;
+      }
+      // Server error - retry
+    } catch {
+      // Network error - retry
+    }
+    // Wait before retrying (1s, 2s, 3s)
+    if (attempt < maxRetries - 1) {
+      await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+    }
   }
+  console.warn('Failed to sync restaurant data after 3 attempts');
 };
 
 export const registerRestaurantRemote = async (restaurant: Restaurant, data: RestaurantData) => {
