@@ -1,0 +1,248 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Restaurant {
+  id                      String            @id
+  name                    String
+  mobile                  String            @unique
+  passcode                String
+  address                 String?
+  createdAt               DateTime
+  settings                Json
+  nextOrderNumber         Int               @default(1)
+  plan                    String            @default("starter")
+  planExpiresAt           DateTime?
+  trialEndsAt             DateTime?
+  razorpayCustomerId      String?
+  razorpaySubscriptionId  String?
+  users                   User[]
+  categories              Category[]
+  menuItems               MenuItem[]
+  orders                  Order[]
+  tables                  Table[]
+  reservations            Reservation[]
+  inventory               InventoryItem[]
+  expenses                Expense[]
+  customers               Customer[]
+  attendance              StaffAttendance[]
+  qrOrders                QROrder[]
+  waitlistEntries         WaitlistEntry[]
+  store                   RestaurantStore?
+}
+
+model User {
+  id           String     @id
+  restaurantId String
+  name         String
+  email        String?
+  mobile       String
+  passcode     String
+  role         String
+  status       String
+  lastLogin    DateTime?
+  deletedAt    DateTime?
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, deletedAt])
+}
+
+model Category {
+  id            String     @id
+  restaurantId  String
+  name          String
+  icon          String
+  sortingOrder  Int
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+}
+
+model MenuItem {
+  id                String     @id
+  restaurantId      String
+  name              String
+  price             Float
+  category          String
+  isVeg             Boolean    @default(true)
+  dineIn            Boolean    @default(true)
+  takeAway          Boolean    @default(true)
+  homeDelivery      Boolean    @default(true)
+  aggregators       Boolean    @default(true)
+  image             String?
+  description       String?
+  modifiers         Json?
+  stockQuantity     Int?
+  lowStockThreshold Int?
+  available         Boolean    @default(true)
+  deletedAt         DateTime?
+  restaurant        Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, category, deletedAt])
+}
+
+model Table {
+  id             String     @id
+  restaurantId   String
+  tableNumber    String
+  capacity       Int        @default(4)
+  status         String
+  currentOrderId String?
+  mergedWith     String?
+  section        String?
+  restaurant     Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, status])
+}
+
+model Order {
+  id               String     @id
+  restaurantId     String
+  tableId          String
+  customerName     String
+  customerMobile   String
+  adults           Int        @default(1)
+  kids             Int        @default(0)
+  items            Json
+  status           String
+  paymentMethod    String?
+  subTotal         Float
+  tax              Float
+  discount         Float      @default(0)
+  total            Float
+  createdAt        DateTime
+  closedAt         DateTime?
+  waiterName       String
+  orderNumber      Int
+  channel          String
+  auditLog         Json
+  deletedAt        DateTime?
+  restaurant       Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, status, deletedAt])
+  @@index([restaurantId, createdAt])
+}
+
+model Reservation {
+  id             String     @id
+  restaurantId   String
+  tableId        String?
+  customerName   String
+  customerMobile String
+  partySize      Int
+  date           String
+  time           String
+  status         String
+  notes          String?
+  createdAt      DateTime
+  restaurant     Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, date])
+}
+
+model InventoryItem {
+  id            String     @id
+  restaurantId  String
+  name          String
+  unit          String
+  quantity      Float
+  minThreshold  Float      @default(10)
+  costPerUnit   Float      @default(0)
+  supplier      String?
+  lastRestocked DateTime?
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+}
+
+model Customer {
+  id              String     @id
+  restaurantId    String
+  name            String
+  mobile          String
+  email           String?
+  birthDate       String?
+  anniversaryDate String?
+  visits          Int        @default(0)
+  totalSpent      Float      @default(0)
+  lastVisit       DateTime?
+  preferences     String?
+  loyaltyPoints   Int        @default(0)
+  tier            String
+  deletedAt       DateTime?
+  restaurant      Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, mobile])
+  @@index([restaurantId, deletedAt])
+}
+
+model Expense {
+  id           String     @id
+  restaurantId String
+  category     String?
+  amount       Float
+  description  String
+  date         String
+  createdBy    String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, date])
+}
+
+model StaffAttendance {
+  id           String     @id
+  userId       String
+  restaurantId String
+  date         String
+  checkIn      DateTime
+  checkOut     DateTime?
+  status       String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, date])
+  @@index([userId])
+}
+
+model QROrder {
+  id             String     @id
+  restaurantId   String
+  tableId        String
+  tableNumber    String
+  customerName   String
+  customerMobile String
+  items          Json
+  total          Float
+  status         String
+  createdAt      DateTime
+  restaurant     Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, status])
+}
+
+model WaitlistEntry {
+  id             String     @id
+  restaurantId   String
+  customerName   String
+  customerMobile String
+  partySize      Int
+  addedAt        DateTime
+  estimatedWait  Int
+  status         String
+  notes          String?
+  restaurant     Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, status])
+}
+
+model RestaurantStore {
+  restaurantId String   @id
+  data         Json
+  updatedAt    DateTime @updatedAt
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+}
