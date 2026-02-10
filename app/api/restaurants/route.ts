@@ -44,6 +44,18 @@ export async function POST(request: Request) {
     status: "active",
   };
 
+  // Fix data to use server-side IDs before storing
+  const fixedData = { ...data } as any;
+  if (fixedData.restaurant) {
+    fixedData.restaurant = { ...fixedData.restaurant, id: restaurantId };
+  }
+  if (fixedData.users && Array.isArray(fixedData.users)) {
+    fixedData.users = fixedData.users.map((u: any) => ({
+      ...u,
+      id: u.role === "admin" ? adminUserId : `user_${crypto.randomUUID()}`,
+    }));
+  }
+
   await prisma.$transaction([
     prisma.restaurant.create({
       data: {
@@ -75,10 +87,10 @@ export async function POST(request: Request) {
     prisma.restaurantStore.create({
       data: {
         restaurantId: restaurantId,
-        data: data as unknown as Prisma.InputJsonValue,
+        data: fixedData as unknown as Prisma.InputJsonValue,
       },
     }),
   ]);
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, restaurantId });
 }

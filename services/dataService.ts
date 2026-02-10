@@ -359,8 +359,13 @@ export const hydrateRestaurantData = async (restaurantId: string): Promise<Resta
     if (!response.ok) return null;
     const payload = await response.json();
     if (!payload?.data) return null;
-    saveRestaurantDataLocal(restaurantId, payload.data);
-    return payload.data as RestaurantData;
+    // Fix restaurant ID to match server-side ID
+    const data = payload.data as RestaurantData;
+    if (data.restaurant && data.restaurant.id !== restaurantId) {
+      data.restaurant.id = restaurantId;
+    }
+    saveRestaurantDataLocal(restaurantId, data);
+    return data;
   } catch {
     return null;
   }
