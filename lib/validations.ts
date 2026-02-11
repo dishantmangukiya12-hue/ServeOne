@@ -98,6 +98,30 @@ export const createMenuItemSchema = z.object({
   available: z.boolean().optional().default(true),
 });
 
+export const updateMenuItemSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  price: z.union([z.number(), z.string()]).transform(val => typeof val === "string" ? parseFloat(val) : val).pipe(z.number().min(0, "Price must be non-negative")).optional(),
+  category: z.string().min(1).max(100).optional(),
+  isVeg: z.boolean().optional(),
+  dineIn: z.boolean().optional(),
+  takeAway: z.boolean().optional(),
+  homeDelivery: z.boolean().optional(),
+  aggregators: z.boolean().optional(),
+  image: z.string().max(2000).nullable().optional(),
+  description: z.string().max(1000).nullable().optional(),
+  modifiers: z.array(z.object({
+    name: z.string().max(200),
+    price: z.number().min(0).optional(),
+    options: z.array(z.object({
+      name: z.string().max(200),
+      price: z.number().min(0).optional(),
+    })).max(50).optional(),
+  })).max(20).nullable().optional(),
+  stockQuantity: z.number().int().nullable().optional(),
+  lowStockThreshold: z.number().int().nullable().optional(),
+  available: z.boolean().optional(),
+});
+
 export const createCategorySchema = z.object({
   restaurantId: restaurantIdField,
   name: nameField,
@@ -113,6 +137,14 @@ export const createTableSchema = z.object({
   status: z.enum(["available", "occupied", "reserved"]).optional().default("available"),
 });
 
+export const updateTableSchema = z.object({
+  tableNumber: z.string().min(1).max(50).optional(),
+  capacity: z.number().int().min(1).max(100).optional(),
+  status: z.enum(["available", "occupied", "reserved"]).optional(),
+  currentOrderId: z.string().nullable().optional(),
+  mergedWith: z.string().nullable().optional(),
+});
+
 // Customers
 export const createCustomerSchema = z.object({
   restaurantId: restaurantIdField,
@@ -124,6 +156,19 @@ export const createCustomerSchema = z.object({
   preferences: z.string().max(1000).nullable().optional(),
   loyaltyPoints: z.number().int().min(0).optional().default(0),
   tier: z.enum(["bronze", "silver", "gold", "platinum"]).optional().default("bronze"),
+});
+
+export const updateCustomerSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  mobile: mobileField.optional(),
+  email: z.string().email().max(254).optional().or(z.literal("")),
+  birthDate: z.string().max(50).nullable().optional(),
+  anniversaryDate: z.string().max(50).nullable().optional(),
+  preferences: z.string().max(1000).nullable().optional(),
+  loyaltyPoints: z.number().int().min(0).optional(),
+  tier: z.enum(["bronze", "silver", "gold", "platinum"]).optional(),
+  visits: z.number().int().min(0).optional(),
+  totalSpent: z.number().min(0).optional(),
 });
 
 // Reservations
@@ -139,6 +184,17 @@ export const createReservationSchema = z.object({
   notes: z.string().max(1000).nullable().optional(),
 });
 
+export const updateReservationSchema = z.object({
+  tableId: z.string().nullable().optional(),
+  customerName: z.string().min(1).max(200).optional(),
+  customerMobile: mobileField.optional(),
+  partySize: z.number().int().min(1).max(100).optional(),
+  date: z.string().min(1).max(50).optional(),
+  time: z.string().min(1).max(20).optional(),
+  status: z.enum(["confirmed", "pending", "cancelled", "seated", "no-show"]).optional(),
+  notes: z.string().max(1000).nullable().optional(),
+});
+
 // Expenses
 export const createExpenseSchema = z.object({
   restaurantId: restaurantIdField,
@@ -147,6 +203,17 @@ export const createExpenseSchema = z.object({
   description: z.string().min(1, "Description is required").max(500),
   date: z.string().min(1, "Date is required").max(50),
   createdBy: z.string().max(200).optional().default("System"),
+});
+
+export const updateExpenseSchema = z.object({
+  category: z.string().max(200).nullable().optional(),
+  amount: z.union([z.number(), z.string()]).transform(val => typeof val === "string" ? parseFloat(val) : val).pipe(z.number().min(0, "Amount must be non-negative")).optional(),
+  description: z.string().min(1).max(500).optional(),
+  date: z.string().min(1).max(50).optional(),
+  paymentMethod: z.string().max(100).nullable().optional(),
+  vendor: z.string().max(200).nullable().optional(),
+  notes: z.string().max(1000).nullable().optional(),
+  receiptUrl: z.string().max(2000).nullable().optional(),
 });
 
 // Inventory
@@ -158,6 +225,16 @@ export const createInventorySchema = z.object({
   minThreshold: z.union([z.number(), z.string()]).transform(val => typeof val === "string" ? parseFloat(val) : val).pipe(z.number().min(0)).optional().default(10),
   costPerUnit: z.union([z.number(), z.string()]).transform(val => typeof val === "string" ? parseFloat(val) : val).pipe(z.number().min(0)).optional().default(0),
   supplier: z.string().max(200).nullable().optional(),
+});
+
+export const updateInventorySchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  unit: z.string().min(1).max(50).optional(),
+  quantity: z.union([z.number(), z.string()]).transform(val => typeof val === "string" ? parseFloat(val) : val).pipe(z.number().min(0)).optional(),
+  minThreshold: z.union([z.number(), z.string()]).transform(val => typeof val === "string" ? parseFloat(val) : val).pipe(z.number().min(0)).optional(),
+  costPerUnit: z.union([z.number(), z.string()]).transform(val => typeof val === "string" ? parseFloat(val) : val).pipe(z.number().min(0)).optional(),
+  supplier: z.string().max(200).nullable().optional(),
+  lastRestocked: z.string().max(50).nullable().optional(),
 });
 
 // Users
@@ -189,4 +266,20 @@ export const createWaitlistSchema = z.object({
   partySize: z.number().int().min(1).max(100),
   estimatedWait: z.number().int().min(0).max(600),
   notes: z.string().max(1000).nullable().optional(),
+});
+
+export const updateWaitlistSchema = z.object({
+  customerName: z.string().min(1).max(200).optional(),
+  customerMobile: mobileField.optional(),
+  partySize: z.number().int().min(1).max(100).optional(),
+  estimatedWait: z.number().int().min(0).max(600).optional(),
+  notes: z.string().max(1000).nullable().optional(),
+  status: z.enum(["waiting", "notified", "seated", "left"]).optional(),
+});
+
+// Attendance
+export const createAttendanceSchema = z.object({
+  restaurantId: restaurantIdField,
+  userId: z.string().min(1).max(100),
+  date: z.string().max(50).optional(),
 });

@@ -5,6 +5,8 @@ import { authOptions } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import { checkPlanLimit } from "@/lib/plan-check";
 import { broadcastInvalidation } from "@/lib/sse";
+import { createUserSchema } from "@/lib/validations";
+import { verifyCsrfToken } from "@/lib/csrf";
 
 // GET /api/users?restaurantId=xxx - List staff users
 export async function GET(request: Request) {
@@ -58,14 +60,18 @@ export async function GET(request: Request) {
 
 // POST /api/users - Create staff user
 export async function POST(request: Request) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const session = await getServerSession(authOptions);
   const body = await request.json();
 
-  const { restaurantId, name, email, mobile, passcode, role } = body;
-
-  if (!restaurantId || !name || !mobile || !passcode || !role) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  const parsed = createUserSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
   }
+  const { restaurantId, name, email, mobile, passcode, role } = parsed.data;
 
   // Verify authorization
   if (!session?.user?.restaurantId || session.user.restaurantId !== restaurantId) {
@@ -76,12 +82,6 @@ export async function POST(request: Request) {
   const planCheck = await checkPlanLimit(restaurantId, 'maxUsers');
   if (!planCheck.allowed) {
     return NextResponse.json({ error: planCheck.error, upgrade: true }, { status: 403 });
-  }
-
-  // Validate role - only allow specific staff roles, prevent privilege escalation
-  const allowedRoles = ['admin', 'manager', 'waiter', 'cashier', 'kitchen', 'staff'];
-  if (!allowedRoles.includes(role)) {
-    return NextResponse.json({ error: "Invalid role" }, { status: 400 });
   }
 
   // Only admins can create other admins

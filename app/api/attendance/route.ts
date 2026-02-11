@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { broadcastInvalidation } from "@/lib/sse";
+import { createAttendanceSchema } from "@/lib/validations";
+import { verifyCsrfToken } from "@/lib/csrf";
 
 // GET /api/attendance?restaurantId=xxx&date=xxx - List attendance records
 export async function GET(request: Request) {
@@ -39,14 +41,18 @@ export async function GET(request: Request) {
 
 // POST /api/attendance - Check in staff
 export async function POST(request: Request) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const session = await getServerSession(authOptions);
   const body = await request.json();
 
-  const { restaurantId, userId, date } = body;
-
-  if (!restaurantId || !userId) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  const parsed = createAttendanceSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
   }
+  const { restaurantId, userId, date } = parsed.data;
 
   if (!session?.user?.restaurantId || session.user.restaurantId !== restaurantId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

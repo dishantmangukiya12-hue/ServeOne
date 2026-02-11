@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createQROrderSchema } from "@/lib/validations";
 import { broadcastInvalidation } from "@/lib/sse";
+import { verifyCsrfToken } from "@/lib/csrf";
 
 // GET /api/qr-orders?restaurantId=xxx - List pending QR orders (staff only)
 export async function GET(request: Request) {
@@ -45,6 +46,10 @@ export async function GET(request: Request) {
 
 // POST /api/qr-orders - Create new QR order (public, no auth required)
 export async function POST(request: Request) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const body = await request.json();
 
   const parsed = createQROrderSchema.safeParse(body);

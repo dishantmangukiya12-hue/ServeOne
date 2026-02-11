@@ -5,11 +5,16 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import { updatePasscodeSchema } from "@/lib/validations";
+import { verifyCsrfToken } from "@/lib/csrf";
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ restaurantId: string }> }
 ) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const { restaurantId } = await params;
 
   // SEC: Require authentication — only admin can change restaurant passcode

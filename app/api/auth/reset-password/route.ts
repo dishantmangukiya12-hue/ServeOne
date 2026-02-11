@@ -2,9 +2,14 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { otpStore } from "@/app/api/auth/forgot-password/route";
+import { verifyCsrfToken } from "@/lib/csrf";
 
 // POST /api/auth/reset-password
 export async function POST(request: Request) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const body = await request.json();
   const { mobile, otp, newPasscode } = body;
 

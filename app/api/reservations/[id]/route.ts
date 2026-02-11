@@ -3,13 +3,25 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { broadcastInvalidation } from "@/lib/sse";
+import { updateReservationSchema } from "@/lib/validations";
+import { verifyCsrfToken } from "@/lib/csrf";
+
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const session = await getServerSession(authOptions);
   const { id } = await params;
   const body = await request.json();
+
+  const parsed = updateReservationSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+  }
 
   try {
     const reservation = await prisma.reservation.findUnique({
@@ -25,12 +37,17 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { status, tableId, notes } = body;
+    const { status, tableId, notes, customerName, customerMobile, partySize, date, time } = parsed.data;
     const updateData: any = {};
 
     if (status !== undefined) updateData.status = status;
     if (tableId !== undefined) updateData.tableId = tableId;
     if (notes !== undefined) updateData.notes = notes;
+    if (customerName !== undefined) updateData.customerName = customerName;
+    if (customerMobile !== undefined) updateData.customerMobile = customerMobile;
+    if (partySize !== undefined) updateData.partySize = partySize;
+    if (date !== undefined) updateData.date = date;
+    if (time !== undefined) updateData.time = time;
 
     const updated = await prisma.reservation.update({
       where: { id },
@@ -50,9 +67,13 @@ export async function PUT(
 
 // DELETE /api/reservations/[id] - Cancel/delete reservation
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const session = await getServerSession(authOptions);
   const { id } = await params;
 

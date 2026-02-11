@@ -4,9 +4,14 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getRazorpay, getRazorpayPlanId } from '@/lib/razorpay';
 import type { PlanId } from '@/lib/plans';
+import { verifyCsrfToken } from '@/lib/csrf';
 
 // POST /api/billing/subscription — Create a Razorpay subscription
 export async function POST(request: Request) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.restaurantId) {
@@ -69,6 +74,10 @@ export async function POST(request: Request) {
 
 // DELETE /api/billing/subscription — Cancel subscription
 export async function DELETE(request: Request) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.restaurantId) {

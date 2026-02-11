@@ -5,8 +5,13 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { FREE_TRIAL_DAYS } from "@/lib/plans";
 import { createRestaurantSchema } from "@/lib/validations";
+import { verifyCsrfToken } from "@/lib/csrf";
 
 export async function POST(request: Request) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const body = await request.json();
 
   const parsed = createRestaurantSchema.safeParse(body);

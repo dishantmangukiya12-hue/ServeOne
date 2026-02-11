@@ -3,12 +3,18 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { broadcastInvalidation } from "@/lib/sse";
+import { updateExpenseSchema } from "@/lib/validations";
+import { verifyCsrfToken } from "@/lib/csrf";
 
 // PUT /api/expenses/[id] - Update expense
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const session = await getServerSession(authOptions);
   const { id } = await params;
 
@@ -17,6 +23,11 @@ export async function PUT(
   }
 
   const body = await request.json();
+
+  const parsed = updateExpenseSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+  }
 
   try {
     const expense = await prisma.expense.findFirst({
@@ -27,17 +38,28 @@ export async function PUT(
       return NextResponse.json({ error: "Expense not found" }, { status: 404 });
     }
 
+    const {
+      category,
+      description,
+      amount,
+      date,
+      paymentMethod,
+      vendor,
+      notes,
+      receiptUrl,
+    } = parsed.data;
+
     const updated = await prisma.expense.update({
       where: { id },
       data: {
-        ...(body.category !== undefined && { category: body.category }),
-        ...(body.description !== undefined && { description: body.description }),
-        ...(body.amount !== undefined && { amount: body.amount }),
-        ...(body.date !== undefined && { date: String(body.date) }),
-        ...(body.paymentMethod !== undefined && { paymentMethod: body.paymentMethod }),
-        ...(body.vendor !== undefined && { vendor: body.vendor }),
-        ...(body.notes !== undefined && { notes: body.notes }),
-        ...(body.receiptUrl !== undefined && { receiptUrl: body.receiptUrl }),
+        ...(category !== undefined && { category }),
+        ...(description !== undefined && { description }),
+        ...(amount !== undefined && { amount }),
+        ...(date !== undefined && { date: String(date) }),
+        ...(paymentMethod !== undefined && { paymentMethod }),
+        ...(vendor !== undefined && { vendor }),
+        ...(notes !== undefined && { notes }),
+        ...(receiptUrl !== undefined && { receiptUrl }),
       },
     });
 
@@ -51,9 +73,13 @@ export async function PUT(
 
 // DELETE /api/expenses/[id] - Delete expense
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const session = await getServerSession(authOptions);
   const { id } = await params;
 

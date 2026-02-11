@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { createMenuItemSchema } from "@/lib/validations";
 import { broadcastInvalidation } from "@/lib/sse";
 import { checkPlanLimit } from "@/lib/plan-check";
+import { verifyCsrfToken } from "@/lib/csrf";
 
 // GET /api/menu/items?restaurantId=xxx&category=xxx - List menu items
 export async function GET(request: Request) {
@@ -50,6 +51,10 @@ export async function GET(request: Request) {
 
 // POST /api/menu/items - Create menu item
 export async function POST(request: Request) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const session = await getServerSession(authOptions);
   const body = await request.json();
 

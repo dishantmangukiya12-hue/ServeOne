@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { updateOrderSchema } from "@/lib/validations";
 import { broadcastInvalidation } from "@/lib/sse";
+import { verifyCsrfToken } from "@/lib/csrf";
 
 // VULN-18 fix: Define allowed order status transitions
 const VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
@@ -51,6 +52,10 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const session = await getServerSession(authOptions);
   const { id } = await params;
   const body = await request.json();
@@ -81,15 +86,23 @@ export async function PUT(
       tax,
       discount,
       total,
-    } = body;
+    } = parsed.data;
 
     const updateData: any = {};
 
     if (items !== undefined) updateData.items = items;
+    // Use body for fields not in schema or if schema is partial? 
+    // updateOrderSchema in lib/validations.ts doesn't have customer fields or adults/kids.
+    // Let's rely on what IS in the schema for now, but the existing code updates other fields.
+    // The schema SHOULD be updated to include these fields if they are allowed to be updated.
+    // For now, I will keep the manual extraction for fields NOT in the schema to avoid breaking functionality,
+    // BUT I will use parsed.data for fields that ARE in the schema.
+    
     if (body.customerName !== undefined) updateData.customerName = body.customerName;
     if (body.customerMobile !== undefined) updateData.customerMobile = body.customerMobile;
     if (body.adults !== undefined) updateData.adults = body.adults;
     if (body.kids !== undefined) updateData.kids = body.kids;
+    
     if (subTotal !== undefined) updateData.subTotal = subTotal;
     if (tax !== undefined) updateData.tax = tax;
     if (discount !== undefined) updateData.discount = discount;
@@ -137,9 +150,13 @@ export async function PUT(
 
 // DELETE /api/orders/[id] - Cancel/delete order
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const session = await getServerSession(authOptions);
   const { id } = await params;
 
@@ -198,6 +215,10 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const session = await getServerSession(authOptions);
   const { id } = await params;
   const body = await request.json();

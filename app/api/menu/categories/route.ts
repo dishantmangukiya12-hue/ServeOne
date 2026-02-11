@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createCategorySchema } from "@/lib/validations";
 import { broadcastInvalidation } from "@/lib/sse";
+import { verifyCsrfToken } from "@/lib/csrf";
 
 // GET /api/menu/categories?restaurantId=xxx - List categories
 export async function GET(request: Request) {
@@ -34,6 +35,10 @@ export async function GET(request: Request) {
 
 // POST /api/menu/categories - Create category
 export async function POST(request: Request) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const session = await getServerSession(authOptions);
   const body = await request.json();
 

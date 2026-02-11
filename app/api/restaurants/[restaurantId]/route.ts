@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { broadcastInvalidation } from "@/lib/sse";
 import { updateRestaurantSchema } from "@/lib/validations";
+import { verifyCsrfToken } from "@/lib/csrf";
 
 // GET /api/restaurants/[restaurantId] - Get restaurant details
 export async function GET(
@@ -41,6 +42,10 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ restaurantId: string }> }
 ) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const { restaurantId } = await params;
 
   // Require authentication

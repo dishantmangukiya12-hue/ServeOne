@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createOrderSchema } from "@/lib/validations";
 import { broadcastInvalidation } from "@/lib/sse";
+import { verifyCsrfToken } from "@/lib/csrf";
 
 // GET /api/orders?restaurantId=xxx&status=xxx&date=xxx - List orders with filters
 export async function GET(request: Request) {
@@ -71,6 +72,10 @@ export async function GET(request: Request) {
 
 // POST /api/orders - Create new order
 export async function POST(request: Request) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const session = await getServerSession(authOptions);
   const body = await request.json();
 

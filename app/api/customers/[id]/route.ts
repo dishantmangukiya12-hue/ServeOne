@@ -3,13 +3,25 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { broadcastInvalidation } from "@/lib/sse";
+import { updateCustomerSchema } from "@/lib/validations";
+import { verifyCsrfToken } from "@/lib/csrf";
+
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const session = await getServerSession(authOptions);
   const { id } = await params;
   const body = await request.json();
+
+  const parsed = updateCustomerSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+  }
 
   try {
     const customer = await prisma.customer.findUnique({
@@ -36,7 +48,7 @@ export async function PUT(
       tier,
       visits,
       totalSpent,
-    } = body;
+    } = parsed.data;
 
     const updateData: any = {};
 
@@ -69,9 +81,13 @@ export async function PUT(
 
 // DELETE /api/customers/[id] - Delete customer
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const session = await getServerSession(authOptions);
   const { id } = await params;
 

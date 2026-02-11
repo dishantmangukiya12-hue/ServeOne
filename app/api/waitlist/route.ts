@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createWaitlistSchema } from "@/lib/validations";
 import { broadcastInvalidation } from "@/lib/sse";
+import { verifyCsrfToken } from "@/lib/csrf";
 
 // GET /api/waitlist?restaurantId=xxx - List active waitlist entries
 export async function GET(request: Request) {
@@ -44,6 +45,10 @@ export async function GET(request: Request) {
 
 // POST /api/waitlist - Add new waitlist entry
 export async function POST(request: Request) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const session = await getServerSession(authOptions);
   const body = await request.json();
 

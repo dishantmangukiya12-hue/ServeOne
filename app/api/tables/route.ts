@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { createTableSchema } from "@/lib/validations";
 import { checkPlanLimit } from "@/lib/plan-check";
 import { broadcastInvalidation } from "@/lib/sse";
+import { verifyCsrfToken } from "@/lib/csrf";
 
 // GET /api/tables?restaurantId=xxx - List tables
 export async function GET(request: Request) {
@@ -45,6 +46,10 @@ export async function GET(request: Request) {
 
 // POST /api/tables - Create table
 export async function POST(request: Request) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const session = await getServerSession(authOptions);
   const body = await request.json();
 
@@ -86,6 +91,10 @@ export async function POST(request: Request) {
 
 // DELETE /api/tables?restaurantId=xxx - Delete all tables for a restaurant
 export async function DELETE(request: Request) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const session = await getServerSession(authOptions);
   const { searchParams } = new URL(request.url);
   const restaurantId = searchParams.get("restaurantId");

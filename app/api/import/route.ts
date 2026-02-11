@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { z } from "zod";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
+import { verifyCsrfToken } from "@/lib/csrf";
 
 // VULN-08 fix: Define strict schemas for imported entities to whitelist fields
 const importCategorySchema = z.object({
@@ -52,6 +53,10 @@ const importUserSchema = z.object({
 
 // POST /api/import - Import restaurant data from JSON backup
 export async function POST(request: Request) {
+  if (!await verifyCsrfToken(request)) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
+
   const session = await getServerSession(authOptions);
   const body = await request.json();
 
