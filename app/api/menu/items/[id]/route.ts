@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { broadcastInvalidation } from "@/lib/sse";
@@ -37,9 +38,15 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { modifiers, ...rest } = parsed.data;
+    const updateData: any = { ...rest };
+    if (modifiers !== undefined) {
+      updateData.modifiers = modifiers === null ? Prisma.JsonNull : (modifiers as Prisma.InputJsonValue);
+    }
+
     const updated = await prisma.menuItem.update({
       where: { id },
-      data: parsed.data,
+      data: updateData,
     });
 
     broadcastInvalidation(item.restaurantId, "menu-items");

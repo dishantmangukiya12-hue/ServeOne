@@ -46,7 +46,7 @@ export async function PUT(
     if (minThreshold !== undefined) updateData.minThreshold = minThreshold;
     if (costPerUnit !== undefined) updateData.costPerUnit = costPerUnit;
     if (supplier !== undefined) updateData.supplier = supplier;
-    if (lastRestocked !== undefined) updateData.lastRestocked = new Date(lastRestocked);
+    if (lastRestocked !== undefined) updateData.lastRestocked = lastRestocked ? new Date(lastRestocked) : null;
 
     const updated = await prisma.inventoryItem.update({
       where: { id },
