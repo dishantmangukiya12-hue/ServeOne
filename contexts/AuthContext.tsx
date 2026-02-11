@@ -2,13 +2,8 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { signOut, useSession } from 'next-auth/react';
-import {
-  logout as logoutService,
-  getRestaurantData,
-  hydrateRestaurantData,
-  setCurrentUser,
-  type Restaurant,
-} from '@/services/dataService';
+import { api } from '@/lib/api-client';
+import type { Restaurant } from '@/types/restaurant';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -42,25 +37,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      let data = getRestaurantData(restaurantId);
-      if (!data) {
-        data = await hydrateRestaurantData(restaurantId);
-      }
+      try {
+        const data = await api.get<{
+          id: string;
+          name: string;
+          mobile: string;
+          address: string | null;
+        }>(`/api/restaurants/${restaurantId}`);
 
-      if (data) {
-        setCurrentUser({
-          restaurantId,
-          userId: session.user.userId,
-          role: session.user.role,
-        });
         setUser({
           restaurantId,
           userId: session.user.userId,
           role: session.user.role,
         });
-        setRestaurant(data.restaurant);
+        setRestaurant({
+          id: data.id,
+          name: data.name,
+          mobile: data.mobile,
+          passcode: '',
+          address: data.address || '',
+          createdAt: '',
+        });
         setIsAuthenticated(true);
-      } else {
+      } catch {
         setIsAuthenticated(false);
         setUser(null);
         setRestaurant(null);
@@ -76,11 +75,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const restaurantId = restaurantData.id;
     const userId = sessionUser?.userId ?? session?.user?.userId;
     const role = sessionUser?.role ?? session?.user?.role;
-    setCurrentUser({
-      restaurantId,
-      userId,
-      role,
-    });
     setUser({
       restaurantId,
       userId,
@@ -91,7 +85,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    logoutService();
     setIsAuthenticated(false);
     setUser(null);
     setRestaurant(null);
@@ -100,10 +93,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshRestaurant = () => {
     if (user) {
-      const data = getRestaurantData(user.restaurantId);
-      if (data) {
-        setRestaurant(data.restaurant);
-      }
+      api.get<{
+        id: string;
+        name: string;
+        mobile: string;
+        address: string | null;
+      }>(`/api/restaurants/${user.restaurantId}`).then((data) => {
+        setRestaurant({
+          id: data.id,
+          name: data.name,
+          mobile: data.mobile,
+          passcode: '',
+          address: data.address || '',
+          createdAt: '',
+        });
+      }).catch(() => {});
     }
   };
 

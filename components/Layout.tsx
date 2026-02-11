@@ -8,13 +8,15 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { MobileSidebar } from '@/components/MobileSidebar';
 import { Logo } from '@/components/Logo';
-import { useServerSync } from '@/hooks/useServerSync';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 
 export function Layout({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { restaurant } = useAuth();
 
-  // Sync data from server every 15s + on tab focus
-  useServerSync();
+  // SSE-based real-time sync replaces old 15s polling
+  useRealtimeSync(restaurant?.id);
 
   return (
     <div className="flex min-h-screen bg-background">

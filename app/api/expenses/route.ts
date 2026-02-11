@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createExpenseSchema } from "@/lib/validations";
+import { broadcastInvalidation } from "@/lib/sse";
 
 // GET /api/expenses?restaurantId=xxx&date=xxx - List expenses
 export async function GET(request: Request) {
@@ -76,6 +77,8 @@ export async function POST(request: Request) {
         createdBy: createdBy || session?.user?.name || "System",
       },
     });
+
+    broadcastInvalidation(restaurantId, "expenses");
 
     return NextResponse.json({ expense }, { status: 201 });
   } catch (error) {

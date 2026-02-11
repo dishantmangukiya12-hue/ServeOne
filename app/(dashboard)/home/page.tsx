@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,74 +17,54 @@ import {
   QrCode,
   BarChart3
 } from 'lucide-react';
-import type { Order } from '@/services/dataService';
-import { getRestaurantData } from '@/services/dataService';
+import type { Order } from '@/types/restaurant';
 import { useAuth } from '@/contexts/AuthContext';
-import { useDataRefresh } from '@/hooks/useServerSync';
+import { useOrders, useTables, useExpenses } from '@/hooks/api';
 
 export default function Home() {
   const navigate = useNavigate();
   const { restaurant } = useAuth();
-  const [todayStats, setTodayStats] = useState({
-    sales: 0,
-    orders: 0,
-    expenses: 0,
-    customers: 0
-  });
-  const [tables, setTables] = useState<{id: string; tableNumber: string; status: string}[]>([]);
-  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
 
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  const { data: ordersData } = useOrders(restaurant?.id, { date: todayStr, limit: 10000 });
+  const { data: tablesData } = useTables(restaurant?.id);
+  const { data: expensesData } = useExpenses(restaurant?.id, { date: todayStr });
 
   const isToday = (dateStr: string) => {
     const d = new Date(dateStr);
     return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
   };
 
-  const loadData = useCallback(() => {
-    if (!restaurant) return;
-    const data = getRestaurantData(restaurant.id);
-    if (!data) return;
+  const { todayStats, recentOrders } = useMemo(() => {
+    const orders = ordersData?.orders || [];
+    const expenses = expensesData?.expenses || [];
 
-    // Today's orders
-    const todayOrders = data.orders.filter(o =>
+    const todayOrders = orders.filter(o =>
       isToday(o.createdAt) && o.status === 'active'
     );
-
-    // Today's closed orders
-    const todayClosed = data.orders.filter(o =>
+    const todayClosed = orders.filter(o =>
       (o.closedAt && isToday(o.closedAt)) && o.status === 'closed'
     );
+    const todayExpenses = expenses.filter(e => e.date === todayStr);
 
-    // Today's expenses
-    const todayExpenses = data.expenses.filter(e => e.date === todayStr);
-
-    setTodayStats({
-      sales: todayClosed.reduce((sum, o) => sum + (o.amountPaid || o.total), 0),
-      orders: todayOrders.length + todayClosed.length,
-      expenses: todayExpenses.reduce((sum, e) => sum + e.amount, 0),
-      customers: todayOrders.reduce((sum, o) => sum + o.adults + o.kids, 0) +
-                 todayClosed.reduce((sum, o) => sum + o.adults + o.kids, 0)
-    });
-
-    setTables(data.tables);
-
-    // Recent orders (last 5)
-    setRecentOrders(
-      data.orders
+    return {
+      todayStats: {
+        sales: todayClosed.reduce((sum, o) => sum + (o.amountPaid || o.total), 0),
+        orders: todayOrders.length + todayClosed.length,
+        expenses: todayExpenses.reduce((sum, e) => sum + e.amount, 0),
+        customers: todayOrders.reduce((sum, o) => sum + o.adults + o.kids, 0) +
+                   todayClosed.reduce((sum, o) => sum + o.adults + o.kids, 0)
+      },
+      recentOrders: orders
         .filter(o => o.status === 'active')
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, 5)
-    );
-  }, [restaurant, todayStr]);
+    };
+  }, [ordersData?.orders, expensesData?.expenses, todayStr]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  useDataRefresh(loadData);
-
+  const tables = tablesData?.tables || [];
   const profit = todayStats.sales - todayStats.expenses;
   const occupiedCount = tables.filter(t => t.status === 'occupied').length;
 

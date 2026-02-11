@@ -2,17 +2,14 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { signIn, getSession } from 'next-auth/react';
+import { signIn } from 'next-auth/react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { createRestaurant, getRestaurantData, registerRestaurantRemote, type Restaurant } from '@/services/dataService';
 import { ArrowRight, Lock, Smartphone, Store, MapPin, Check } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
 import { Logo } from '@/components/Logo';
 
 export default function Register() {
   const router = useRouter();
-  const { login } = useAuth();
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
   const [passcode, setPasscode] = useState('');
@@ -43,7 +40,8 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const restaurant: Restaurant = {
+      // Register restaurant via API directly (no localStorage)
+      const restaurantPayload = {
         id: `rest_${Date.now()}`,
         name,
         mobile,
@@ -52,23 +50,29 @@ export default function Register() {
         createdAt: new Date().toISOString(),
       };
 
-      const restaurantData = createRestaurant(restaurant);
-      const data = getRestaurantData(restaurant.id);
+      const res = await fetch('/api/restaurants', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          restaurant: restaurantPayload,
+          data: {
+            restaurant: restaurantPayload,
+            users: [{ name: 'Admin', email: '', mobile, role: 'admin', status: 'active' }],
+            settings: { currency: '₹', taxRate: 5, enableInventory: false },
+            categories: [],
+            menuItems: [],
+            tables: [],
+            orders: [],
+            nextOrderNumber: 1,
+          },
+        }),
+      });
 
-      // Register restaurant via API
-      if (data) {
-        const res = await fetch('/api/restaurants', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ restaurant, data }),
-        });
-
-        if (!res.ok && res.status !== 409) {
-          const err = await res.json().catch(() => ({ error: 'Registration failed' }));
-          setError(err.error || 'Registration failed. Please try again.');
-          setLoading(false);
-          return;
-        }
+      if (!res.ok && res.status !== 409) {
+        const err = await res.json().catch(() => ({ error: 'Registration failed' }));
+        setError(err.error || 'Registration failed. Please try again.');
+        setLoading(false);
+        return;
       }
 
       // Sign in (works for both new registration and existing accounts)
@@ -85,11 +89,6 @@ export default function Register() {
       }
 
       if (result?.ok) {
-        const session = await getSession();
-        login(restaurantData, {
-          userId: session?.user?.userId,
-          role: session?.user?.role,
-        });
         router.push('/setup');
         router.refresh();
       }

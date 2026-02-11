@@ -66,6 +66,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // SEC: Only admins can import data (destructive operation)
+  if (session.user.role !== 'admin') {
+    return NextResponse.json({ error: "Only admins can import data" }, { status: 403 });
+  }
+
   try {
     // Verify restaurant exists
     const restaurant = await prisma.restaurant.findUnique({

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createInventorySchema } from "@/lib/validations";
+import { broadcastInvalidation } from "@/lib/sse";
 
 // GET /api/inventory?restaurantId=xxx - List inventory items
 export async function GET(request: Request) {
@@ -72,6 +73,8 @@ export async function POST(request: Request) {
         supplier: supplier || null,
       },
     });
+
+    broadcastInvalidation(restaurantId, "inventory");
 
     return NextResponse.json({ item }, { status: 201 });
   } catch (error) {

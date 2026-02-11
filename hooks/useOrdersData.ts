@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import type { MenuItem, Table, Order, Restaurant } from '@/services/dataService';
-import { getRestaurantData } from '@/services/dataService';
-import { getPendingQROrderCount } from '@/components/QROrderManager';
-import { useDataRefresh } from '@/hooks/useServerSync';
+import { useState, useMemo } from 'react';
+import type { MenuItem, Table, Order, Restaurant } from '@/types/restaurant';
+import { useTables } from '@/hooks/api/useTables';
+import { useMenuItems, useCategories } from '@/hooks/api/useMenuItems';
+import { useRestaurant } from '@/hooks/api/useRestaurant';
+import { useOrders } from '@/hooks/api/useOrders';
+import { useQROrders } from '@/hooks/api/useQROrders';
 
 interface Category {
   id: string;
@@ -18,75 +20,44 @@ interface Settings {
 }
 
 export function useOrdersData(restaurant: Restaurant | null) {
-  const [tables, setTables] = useState<Table[]>([]);
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [settings, setSettings] = useState<Settings>({ taxRate: 5, serviceCharge: 0 });
-  const [pendingQRCount, setPendingQRCount] = useState(0);
+  const restaurantId = restaurant?.id;
   const [selectedCategory, setSelectedCategory] = useState('');
 
-  const loadData = useCallback(() => {
-    if (!restaurant) return;
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      setTables(data.tables);
-      setMenuItems(data.menuItems);
-      setCategories(data.categories);
-      if (data.settings) {
-        setSettings({
-          taxRate: data.settings.taxRate ?? 5,
-          serviceCharge: data.settings.serviceCharge ?? 0,
-        });
-      }
-      if (data.categories.length > 0 && !selectedCategory) {
-        setSelectedCategory(data.categories[0].id);
-      }
-    }
-  }, [restaurant, selectedCategory]);
+  const { data: tablesData } = useTables(restaurantId);
+  const { data: menuData } = useMenuItems(restaurantId);
+  const { data: catData } = useCategories(restaurantId);
+  const { data: restData } = useRestaurant(restaurantId);
+  const { data: ordersData } = useOrders(restaurantId, { status: 'active' });
+  const { data: qrData } = useQROrders(restaurantId);
 
-  // Load data on mount and when restaurant changes
-  useEffect(() => {
-    if (!restaurant) return;
-    loadData();
-  }, [restaurant?.id, loadData]);
+  const tables = useMemo(() => (tablesData?.tables || []) as Table[], [tablesData]);
+  const menuItems = useMemo(() => (menuData?.items || []) as MenuItem[], [menuData]);
+  const categories = useMemo(() => (catData?.categories || []) as Category[], [catData]);
+  const allOrders = useMemo(() => (ordersData?.orders || []) as Order[], [ordersData]);
 
-  // Re-load when server sync updates localStorage
-  useDataRefresh(loadData);
-
-  // Check for pending QR orders
-  useEffect(() => {
-    if (!restaurant) return;
-
-    const checkPending = () => {
-      setPendingQRCount(getPendingQROrderCount(restaurant.id));
+  const settings = useMemo<Settings>(() => {
+    const s = restData?.settings as unknown as Record<string, unknown> | null;
+    return {
+      taxRate: (s?.taxRate as number) ?? 5,
+      serviceCharge: (s?.serviceCharge as number) ?? 0,
     };
+  }, [restData]);
 
-    checkPending();
-    const interval = setInterval(checkPending, 3000);
+  const pendingQRCount = useMemo(() => {
+    return (qrData?.orders || []).filter(o => o.status === 'pending_approval').length;
+  }, [qrData]);
 
-    const handleStorage = () => checkPending();
-    window.addEventListener('storage', handleStorage);
+  const refreshData = () => {
+    // No-op — React Query handles refetching
+  };
 
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('storage', handleStorage);
-    };
-  }, [restaurant?.id]);
-
-  const refreshData = useCallback(() => {
-    loadData();
-  }, [loadData]);
-
-  const getOrderForTable = useCallback((table: Table): Order | null => {
-    if (!table.currentOrderId || !restaurant) return null;
-    const data = getRestaurantData(restaurant.id);
-    if (!data) return null;
-    return data.orders.find(o => o.id === table.currentOrderId) || null;
-  }, [restaurant]);
+  const getOrderForTable = (table: Table): Order | null => {
+    return allOrders.find(o => o.tableId === table.id && o.status === 'active') || null;
+  };
 
   return {
     tables,
-    setTables,
+    setTables: () => {},
     menuItems,
     categories,
     settings,
@@ -97,4 +68,3 @@ export function useOrdersData(restaurant: Restaurant | null) {
     getOrderForTable,
   };
 }
-

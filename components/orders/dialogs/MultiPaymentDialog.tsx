@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Trash2, CreditCard, Banknote, Smartphone, Wallet } from 'lucide-react';
-import type { Order } from '@/services/dataService';
+import type { Order } from '@/types/restaurant';
 
 interface PaymentEntry {
   id: string;

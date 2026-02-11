@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useDataRefresh } from '@/hooks/useServerSync';
+import { useTables } from '@/hooks/api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { QrCode, Download, Copy, Check, Smartphone, Utensils, Info, Eye } from 'lucide-react';
-import type { Table } from '@/services/dataService';
-import { getRestaurantData } from '@/services/dataService';
+import type { Table } from '@/types/restaurant';
 import { toast } from 'sonner';
 import QROrderManager from '@/components/QROrderManager';
 
@@ -45,27 +44,12 @@ function QRVisual({ tableNumber }: { tableNumber: string }) {
 
 export default function QROrdering() {
   const { restaurant } = useAuth();
-  const [tables, setTables] = useState<Table[]>([]);
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [copied, setCopied] = useState(false);
   const [showOrderManager, setShowOrderManager] = useState(false);
 
-  useEffect(() => {
-    if (!restaurant) return;
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      setTables(data.tables.filter(t => !t.mergedWith));
-    }
-  }, [restaurant?.id]);
-
-  const loadTables = () => {
-    if (!restaurant) return;
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      setTables(data.tables.filter(t => !t.mergedWith));
-    }
-  };
-  useDataRefresh(loadTables);
+  const { data: tablesData } = useTables(restaurant?.id);
+  const tables = tablesData?.tables?.filter(t => !t.mergedWith) || [];
 
   const generateQRUrl = (tableNumber: string) => {
     if (!restaurant) return '';

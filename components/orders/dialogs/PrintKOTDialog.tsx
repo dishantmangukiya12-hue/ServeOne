@@ -2,7 +2,7 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import type { Order, Restaurant, Table } from '@/services/dataService';
+import type { Order, Restaurant, Table } from '@/types/restaurant';
 
 interface PrintKOTDialogProps {
   open: boolean;

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Clock, ChefHat, Bell, CheckCircle } from 'lucide-react';
-import type { Table, Order } from '@/services/dataService';
+import type { Table, Order } from '@/types/restaurant';
 
 interface TableCardProps {
   table: Table;

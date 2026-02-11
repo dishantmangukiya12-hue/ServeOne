@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useDataRefresh } from '@/hooks/useServerSync';
+import { useCustomers, useRestaurant, useUpdateRestaurant } from '@/hooks/api';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Gift, Users, Search, Award } from 'lucide-react';
-import type { Customer } from '@/services/dataService';
-import { getRestaurantData, saveRestaurantData } from '@/services/dataService';
+import type { Customer } from '@/types/restaurant';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 
@@ -20,49 +19,27 @@ const tierConfig = {
 
 export default function Loyalty() {
   const { restaurant } = useAuth();
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [settings, setSettings] = useState({
-    enableLoyalty: true,
-    pointsPerRupee: 1
-  });
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    loadData();
-  }, [restaurant?.id]);
+  const { data: customersData } = useCustomers(restaurant?.id);
+  const { data: restaurantData } = useRestaurant(restaurant?.id);
+  const updateRestaurant = useUpdateRestaurant(restaurant?.id);
 
-  const loadData = () => {
-    if (!restaurant) return;
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      setCustomers(data.customers);
-      setSettings({
-        enableLoyalty: data.settings.enableLoyalty,
-        pointsPerRupee: data.settings.loyaltyPointsPerRupee
-      });
-    }
+  const customers = customersData?.customers || [];
+  const settings = {
+    enableLoyalty: restaurantData?.settings?.enableLoyalty ?? true,
+    pointsPerRupee: restaurantData?.settings?.loyaltyPointsPerRupee ?? 1,
   };
-  useDataRefresh(loadData);
 
   const handleToggleLoyalty = (enabled: boolean) => {
-    if (!restaurant) return;
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      data.settings.enableLoyalty = enabled;
-      saveRestaurantData(restaurant.id, data);
-      setSettings(prev => ({ ...prev, enableLoyalty: enabled }));
-      toast.success(enabled ? 'Loyalty program enabled' : 'Loyalty program disabled');
-    }
+    updateRestaurant.mutate(
+      { settings: { enableLoyalty: enabled } },
+      { onSuccess: () => toast.success(enabled ? 'Loyalty program enabled' : 'Loyalty program disabled') }
+    );
   };
 
   const handleUpdatePointsRate = (rate: number) => {
-    if (!restaurant) return;
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      data.settings.loyaltyPointsPerRupee = rate;
-      saveRestaurantData(restaurant.id, data);
-      setSettings(prev => ({ ...prev, pointsPerRupee: rate }));
-    }
+    updateRestaurant.mutate({ settings: { loyaltyPointsPerRupee: rate } });
   };
 
   const filteredCustomers = customers

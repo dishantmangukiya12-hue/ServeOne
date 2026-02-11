@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useDataRefresh } from '@/hooks/useServerSync';
+import { useOrders } from '@/hooks/api';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Search, Phone, Mail, ShoppingBag } from 'lucide-react';
-import { getRestaurantData } from '@/services/dataService';
 
 interface CustomerData {
   name: string;
@@ -19,20 +18,18 @@ interface CustomerData {
 
 export default function Customers() {
   const { restaurant } = useAuth();
-  const [customers, setCustomers] = useState<CustomerData[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const loadCustomers = useCallback(() => {
-    if (!restaurant) return;
-    const data = getRestaurantData(restaurant.id);
-    if (!data) return;
+  const { data: ordersData } = useOrders(restaurant?.id, { limit: 10000 });
 
-    // Extract unique customers from orders
+  const customers = useMemo(() => {
+    if (!ordersData?.orders) return [];
+
     const customerMap: { [key: string]: CustomerData } = {};
 
-    data.orders.forEach(order => {
+    ordersData.orders.forEach(order => {
       const key = order.customerMobile || order.customerName;
-      if (!key || key.trim() === '') return; // skip anonymous guests
+      if (!key || key.trim() === '') return;
       if (!customerMap[key]) {
         customerMap[key] = {
           name: order.customerName,
@@ -54,14 +51,8 @@ export default function Customers() {
       }
     });
 
-    setCustomers(Object.values(customerMap));
-  }, [restaurant]);
-
-  useEffect(() => {
-    loadCustomers();
-  }, [loadCustomers]);
-
-  useDataRefresh(loadCustomers);
+    return Object.values(customerMap);
+  }, [ordersData?.orders]);
 
   const filteredCustomers = customers.filter(c =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

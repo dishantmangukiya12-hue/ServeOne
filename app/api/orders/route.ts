@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createOrderSchema } from "@/lib/validations";
+import { broadcastInvalidation } from "@/lib/sse";
 
 // GET /api/orders?restaurantId=xxx&status=xxx&date=xxx - List orders with filters
 export async function GET(request: Request) {
@@ -12,6 +13,8 @@ export async function GET(request: Request) {
   const restaurantId = searchParams.get("restaurantId");
   const status = searchParams.get("status");
   const date = searchParams.get("date");
+  const startDate = searchParams.get("startDate");
+  const endDate = searchParams.get("endDate");
 
   if (!restaurantId) {
     return NextResponse.json({ error: "Missing restaurantId" }, { status: 400 });
@@ -30,7 +33,16 @@ export async function GET(request: Request) {
       where.status = { in: statuses };
     }
 
-    if (date) {
+    if (startDate && endDate) {
+      where.createdAt = {
+        gte: new Date(startDate),
+        lt: new Date(endDate),
+      };
+    } else if (startDate) {
+      where.createdAt = { gte: new Date(startDate) };
+    } else if (endDate) {
+      where.createdAt = { lt: new Date(endDate) };
+    } else if (date) {
       where.createdAt = {
         gte: new Date(date),
         lt: new Date(new Date(date).getTime() + 24 * 60 * 60 * 1000),
@@ -121,6 +133,9 @@ export async function POST(request: Request) {
       where: { id: data.tableId },
       data: { status: "occupied", currentOrderId: order.id },
     });
+
+    broadcastInvalidation(data.restaurantId, "orders");
+    broadcastInvalidation(data.restaurantId, "tables");
 
     return NextResponse.json({ order }, { status: 201 });
   } catch (error) {

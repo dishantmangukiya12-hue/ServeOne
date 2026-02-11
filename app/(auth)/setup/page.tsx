@@ -20,7 +20,6 @@ import {
   X,
   Loader2,
 } from "lucide-react";
-import { hydrateRestaurantData, getRestaurantData, saveRestaurantData } from "@/services/dataService";
 
 const STEPS = [
   { id: "categories", label: "Menu Categories", icon: UtensilsCrossed },
@@ -219,79 +218,8 @@ export default function SetupWizard() {
   };
 
   const finish = async () => {
-    if (restaurantId) {
-      // Fetch fresh data from individual DB models (setup wrote to these)
-      const [categoriesRes, tablesRes, restaurantRes, usersRes] = await Promise.all([
-        fetch(`/api/menu/categories?restaurantId=${restaurantId}`).catch(() => null),
-        fetch(`/api/tables?restaurantId=${restaurantId}`).catch(() => null),
-        fetch(`/api/restaurants/${restaurantId}`).catch(() => null),
-        fetch(`/api/users?restaurantId=${restaurantId}`).catch(() => null),
-      ]);
-
-      // Get current localStorage data (has base restaurant info from registration)
-      const currentData = getRestaurantData(restaurantId);
-
-      if (currentData) {
-        // Merge fresh DB data into localStorage
-        if (categoriesRes?.ok) {
-          const { categories } = await categoriesRes.json();
-          if (categories?.length > 0) {
-            currentData.categories = categories.map((c: { id: string; name: string; icon: string; sortingOrder: number }) => ({
-              id: c.id,
-              name: c.name,
-              icon: c.icon,
-            }));
-          }
-        }
-
-        if (tablesRes?.ok) {
-          const { tables } = await tablesRes.json();
-          if (tables?.length > 0) {
-            currentData.tables = tables.map((t: { id: string; tableNumber: string; capacity: number; status: string }) => ({
-              id: t.id,
-              tableNumber: t.tableNumber,
-              capacity: t.capacity,
-              status: t.status || 'available',
-            }));
-          }
-        }
-
-        if (restaurantRes?.ok) {
-          const restaurant = await restaurantRes.json();
-          if (restaurant?.settings) {
-            currentData.settings = { ...currentData.settings, ...restaurant.settings };
-          }
-          if (restaurant?.name) currentData.restaurant.name = restaurant.name;
-          if (restaurant?.address) currentData.restaurant.address = restaurant.address;
-        }
-
-        if (usersRes?.ok) {
-          const { users } = await usersRes.json();
-          if (users?.length > 0) {
-            // Merge setup staff with existing admin user
-            const existingAdmin = currentData.users.find((u: { role: string }) => u.role === 'admin');
-            const newUsers = users
-              .filter((u: { role: string }) => u.role !== 'admin')
-              .map((u: { id: string; name: string; email?: string; mobile: string; role: string; status: string }) => ({
-                id: u.id,
-                name: u.name,
-                email: u.email || '',
-                mobile: u.mobile,
-                passcode: '',
-                role: u.role,
-                status: u.status || 'active',
-              }));
-            currentData.users = existingAdmin ? [existingAdmin, ...newUsers] : newUsers;
-          }
-        }
-
-        // Save merged data to localStorage (this also syncs the blob)
-        saveRestaurantData(restaurantId, currentData);
-      } else {
-        // Fallback: try blob hydration if no localStorage data exists
-        await hydrateRestaurantData(restaurantId);
-      }
-    }
+    // Setup data was already saved to individual DB tables (categories, tables, tax, staff)
+    // Just redirect — React Query will fetch fresh data from the API
     router.push("/home");
     router.refresh();
   };

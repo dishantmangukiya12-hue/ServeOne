@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-
-// PUT /api/reservations/[id] - Update reservation (seat, cancel, etc.)
+import { broadcastInvalidation } from "@/lib/sse";
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -37,6 +36,8 @@ export async function PUT(
       where: { id },
       data: updateData,
     });
+
+    broadcastInvalidation(reservation.restaurantId, "reservations");
 
     return NextResponse.json({ reservation: updated });
   } catch (error) {
@@ -72,6 +73,8 @@ export async function DELETE(
     await prisma.reservation.delete({
       where: { id },
     });
+
+    broadcastInvalidation(reservation.restaurantId, "reservations");
 
     return NextResponse.json({ ok: true });
   } catch (error) {

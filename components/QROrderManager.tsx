@@ -1,33 +1,18 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { QrCode, Check, X, Bell, User, ShoppingBag, Table } from 'lucide-react';
-import { getRestaurantData, saveRestaurantData, updateOrder, type Restaurant, type Order } from '@/services/dataService';
+import { useQROrders, useUpdateQROrder } from '@/hooks/api/useQROrders';
+import { useCreateOrder, useUpdateOrder } from '@/hooks/api/useOrders';
+import { useTables } from '@/hooks/api/useTables';
+import { useRestaurant } from '@/hooks/api/useRestaurant';
+import { useOrders } from '@/hooks/api/useOrders';
 import { toast } from 'sonner';
-
-interface QROrder {
-  id: string;
-  restaurantId: string;
-  tableId: string;
-  tableNumber: string;
-  customerName: string;
-  customerMobile: string;
-  items: Array<{
-    menuItemId: string;
-    name: string;
-    price: number;
-    quantity: number;
-    specialRequest: string;
-  }>;
-  total: number;
-  status: 'pending_approval' | 'approved' | 'rejected';
-  createdAt: string;
-  channel: 'qr_ordering';
-}
+import type { Restaurant, QROrder } from '@/types/restaurant';
 
 interface QROrderManagerProps {
   restaurant: Restaurant;
@@ -35,19 +20,31 @@ interface QROrderManagerProps {
   onClose: () => void;
 }
 
-// Export function to get pending count for Header
-export function getPendingQROrderCount(restaurantId: string): number {
-  const pendingOrders = JSON.parse(localStorage.getItem('pending_qr_orders') || '[]');
-  return pendingOrders.filter((o: QROrder) => 
-    o.restaurantId === restaurantId && o.status === 'pending_approval'
-  ).length;
-}
-
 export default function QROrderManager({ restaurant, isOpen, onClose }: QROrderManagerProps) {
-  const [pendingOrders, setPendingOrders] = useState<QROrder[]>([]);
   const [hasNewOrders, setHasNewOrders] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<QROrder | null>(null);
   const [showOrderDetail, setShowOrderDetail] = useState(false);
+  const [prevCount, setPrevCount] = useState(0);
+
+  // Fetch QR orders from API
+  const { data: qrOrdersData } = useQROrders(restaurant.id);
+  const updateQROrderMutation = useUpdateQROrder(restaurant.id);
+  const createOrderMutation = useCreateOrder(restaurant.id);
+  const updateOrderMutation = useUpdateOrder(restaurant.id);
+  const { data: tablesData } = useTables(restaurant.id);
+  const { data: restaurantData } = useRestaurant(restaurant.id);
+  const { data: ordersData } = useOrders(restaurant.id, { status: 'active' });
+
+  const pendingOrders = useMemo(() => {
+    return (qrOrdersData?.orders || []).filter(o => o.status === 'pending_approval');
+  }, [qrOrdersData]);
+
+  const tables = useMemo(() => tablesData?.tables || [], [tablesData]);
+  const allOrders = useMemo(() => ordersData?.orders || [], [ordersData]);
+  const settings = useMemo(() => {
+    const s = restaurantData?.settings;
+    return typeof s === 'object' && s !== null ? s as unknown as Record<string, unknown> : {};
+  }, [restaurantData]);
 
   // Play notification sound for new orders
   const playNotificationSound = useCallback(() => {
@@ -73,37 +70,14 @@ export default function QROrderManager({ restaurant, isOpen, onClose }: QROrderM
     }
   }, []);
 
-  // Load pending orders
-  const loadPendingOrders = useCallback(() => {
-    const orders = JSON.parse(localStorage.getItem('pending_qr_orders') || '[]');
-    const restaurantOrders = orders.filter(
-      (o: QROrder) => o.restaurantId === restaurant.id && o.status === 'pending_approval'
-    );
-
-    if (restaurantOrders.length > pendingOrders.length) {
+  // Detect new orders via count change
+  useEffect(() => {
+    if (pendingOrders.length > prevCount) {
       setHasNewOrders(true);
       playNotificationSound();
     }
-
-    setPendingOrders(restaurantOrders);
-  }, [restaurant.id, pendingOrders.length, playNotificationSound]);
-
-  // Listen for storage changes (from customer orders)
-  useEffect(() => {
-    loadPendingOrders();
-
-    const handleStorageChange = () => {
-      loadPendingOrders();
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    const interval = setInterval(loadPendingOrders, 3000);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
-    };
-  }, [loadPendingOrders]);
+    setPrevCount(pendingOrders.length);
+  }, [pendingOrders.length, prevCount, playNotificationSound]);
 
   // Reset new order indicator when dialog opens
   useEffect(() => {
@@ -113,33 +87,22 @@ export default function QROrderManager({ restaurant, isOpen, onClose }: QROrderM
   }, [isOpen]);
 
   const handleAcceptOrder = (order: QROrder) => {
-    const data = getRestaurantData(restaurant.id);
-    if (!data) {
-      toast.error('Restaurant data not found');
-      return;
-    }
-
-    // Find table by ID or by tableNumber
-    let table = data.tables.find((t: any) => t.id === order.tableId);
-    
-    // If not found by ID, try finding by tableNumber
-    if (!table) {
-      table = data.tables.find((t: any) => t.tableNumber === order.tableNumber);
-    }
+    // Find table by tableNumber
+    const table = tables.find(t => t.tableNumber === order.tableNumber) ||
+                  tables.find(t => t.id === order.tableId);
 
     if (!table) {
       toast.error(`Table ${order.tableNumber} not found`);
-      console.error('Looking for table:', order.tableId, 'or tableNumber:', order.tableNumber);
-      console.error('Available tables:', data.tables.map((t: any) => ({ id: t.id, number: t.tableNumber })));
       return;
     }
 
-    // If table is occupied, add items to existing order instead of creating new
-    if (table.status === 'occupied' && table.currentOrderId) {
-      const existingOrder = data.orders.find((o: Order) => o.id === table.currentOrderId);
-      
+    // If table is occupied, find existing active order and add items
+    if (table.status === 'occupied') {
+      const existingOrder = allOrders.find(o => 
+        o.tableId === table.id && o.status === 'active'
+      );
+
       if (existingOrder) {
-        // Add new items to existing order
         const newItems = order.items.map(item => ({
           id: `item_${Date.now()}_${item.menuItemId}`,
           menuItemId: item.menuItemId,
@@ -147,44 +110,36 @@ export default function QROrderManager({ restaurant, isOpen, onClose }: QROrderM
           price: item.price,
           quantity: item.quantity,
           specialRequest: item.specialRequest,
-          addedAt: new Date().toISOString()
+          addedAt: new Date().toISOString(),
         }));
 
-        const updatedItems = [...existingOrder.items, ...newItems];
-        const newSubTotal = updatedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        const newTax = Math.round(newSubTotal * (data.settings?.taxRate ?? 5) / 100);
+        const existingItems = Array.isArray(existingOrder.items) ? existingOrder.items as unknown as Record<string, unknown>[] : [];
+        const updatedItems = [...existingItems, ...newItems];
+        const newSubTotal = updatedItems.reduce((sum, item) => sum + ((item.price as number) * (item.quantity as number)), 0);
+        const taxRate = (settings?.taxRate as number) ?? 5;
+        const newTax = Math.round(newSubTotal * taxRate / 100);
         const newTotal = newSubTotal + newTax;
 
-        // Update existing order
-        updateOrder(restaurant.id, existingOrder.id, {
-          items: updatedItems,
+        updateOrderMutation.mutate({
+          orderId: existingOrder.id,
+          items: updatedItems as unknown as Record<string, unknown>[],
           subTotal: newSubTotal,
           tax: newTax,
-          total: newTotal
+          total: newTotal,
+        }, {
+          onSuccess: () => {
+            // Mark QR order as approved
+            updateQROrderMutation.mutate({ qrOrderId: order.id, status: 'approved' });
+            setShowOrderDetail(false);
+            toast.success(`Items added to existing order at Table ${order.tableNumber}`);
+          },
         });
-
-        // Update pending orders
-        const pending = JSON.parse(localStorage.getItem('pending_qr_orders') || '[]');
-        const updated = pending.map((o: QROrder) => 
-          o.id === order.id ? { ...o, status: 'approved' } : o
-        );
-        localStorage.setItem('pending_qr_orders', JSON.stringify(updated));
-
-        setPendingOrders(prev => prev.filter(o => o.id !== order.id));
-        setShowOrderDetail(false);
-        toast.success(`Items added to existing order at Table ${order.tableNumber}`);
         return;
       }
     }
 
-    // Get next order number
-    const closedOrders = data.orders.filter((o: Order) => o.status === 'closed' && o.orderNumber);
-    const maxOrderNumber = closedOrders.reduce((max: number, o: Order) => Math.max(max, o.orderNumber || 0), 0);
-    const nextOrderNumber = maxOrderNumber + 1;
-
-    // Create the actual order in the system
-    const newOrder: Order = {
-      id: order.id,
+    // Create new order
+    createOrderMutation.mutate({
       restaurantId: restaurant.id,
       tableId: table.id,
       customerName: order.customerName,
@@ -198,60 +153,31 @@ export default function QROrderManager({ restaurant, isOpen, onClose }: QROrderM
         price: item.price,
         quantity: item.quantity,
         specialRequest: item.specialRequest,
-        addedAt: new Date().toISOString()
-      })),
-      status: 'active',
-      paymentMethod: '',
+        addedAt: new Date().toISOString(),
+      })) as unknown as Record<string, unknown>[],
       subTotal: order.total,
       tax: 0,
       discount: 0,
       total: order.total,
-      createdAt: new Date().toISOString(),
-      closedAt: undefined,
       waiterName: 'QR Order',
       channel: 'other',
-      orderNumber: nextOrderNumber,
-      auditLog: [{
-        id: `audit_${Date.now()}`,
-        action: 'QR_ORDER_ACCEPTED',
-        performedBy: 'Manager',
-        performedAt: new Date().toISOString(),
-        details: `Order accepted from Table ${order.tableNumber}`
-      }]
-    };
-
-    // Add to restaurant orders
-    data.orders.push(newOrder);
-    
-    // Update table status
-    table.status = 'occupied';
-    table.currentOrderId = order.id;
-    
-    // Save using the proper function
-    saveRestaurantData(restaurant.id, data);
-
-    // Update pending orders
-    const pending = JSON.parse(localStorage.getItem('pending_qr_orders') || '[]');
-    const updated = pending.map((o: QROrder) => 
-      o.id === order.id ? { ...o, status: 'approved' } : o
-    );
-    localStorage.setItem('pending_qr_orders', JSON.stringify(updated));
-
-    setPendingOrders(prev => prev.filter(o => o.id !== order.id));
-    setShowOrderDetail(false);
-    toast.success(`Order #${nextOrderNumber} accepted for Table ${order.tableNumber}`);
+    }, {
+      onSuccess: () => {
+        // Mark QR order as approved
+        updateQROrderMutation.mutate({ qrOrderId: order.id, status: 'approved' });
+        setShowOrderDetail(false);
+        toast.success(`Order accepted for Table ${order.tableNumber}`);
+      },
+    });
   };
 
   const handleRejectOrder = (order: QROrder) => {
-    const pending = JSON.parse(localStorage.getItem('pending_qr_orders') || '[]');
-    const updated = pending.map((o: QROrder) => 
-      o.id === order.id ? { ...o, status: 'rejected' } : o
-    );
-    localStorage.setItem('pending_qr_orders', JSON.stringify(updated));
-
-    setPendingOrders(prev => prev.filter(o => o.id !== order.id));
-    setShowOrderDetail(false);
-    toast.success('Order rejected');
+    updateQROrderMutation.mutate({ qrOrderId: order.id, status: 'rejected' }, {
+      onSuccess: () => {
+        setShowOrderDetail(false);
+        toast.success('Order rejected');
+      },
+    });
   };
 
   const formatTime = (timestamp: string) => {

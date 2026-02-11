@@ -3,26 +3,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card } from '@/components/ui/card';
 import { QrCode, Bell, User, ShoppingBag, Table as TableIcon } from 'lucide-react';
-
-interface QROrder {
-  id: string;
-  restaurantId: string;
-  tableId: string;
-  tableNumber: string;
-  customerName: string;
-  customerMobile: string;
-  items: Array<{
-    menuItemId: string;
-    name: string;
-    price: number;
-    quantity: number;
-    specialRequest: string;
-  }>;
-  total: number;
-  status: 'pending_approval' | 'approved' | 'rejected';
-  createdAt: string;
-  channel: 'qr_ordering';
-}
+import type { QROrder } from '@/types/restaurant';
 
 interface QROrdersDialogProps {
   open: boolean;

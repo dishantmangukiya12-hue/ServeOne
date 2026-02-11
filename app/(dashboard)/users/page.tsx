@@ -1,19 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useDataRefresh } from '@/hooks/useServerSync';
+import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '@/hooks/api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
-import type { User } from '@/services/dataService';
-import { getRestaurantData, saveRestaurantData } from '@/services/dataService';
+import type { User } from '@/types/restaurant';
 
 export default function Users() {
   const { restaurant } = useAuth();
-  const [users, setUsers] = useState<User[]>([]);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -24,86 +22,60 @@ export default function Users() {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'admin' | 'manager' | 'waiter' | 'cashier' | 'kitchen'>('waiter');
 
-  const loadUsers = useCallback(() => {
-    if (!restaurant) return;
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      setUsers(data.users);
-    }
-  }, [restaurant]);
-
-  useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
-
-  useDataRefresh(loadUsers);
+  const { data: usersData } = useUsers(restaurant?.id);
+  const createUser = useCreateUser(restaurant?.id);
+  const updateUser = useUpdateUser(restaurant?.id);
+  const deleteUser = useDeleteUser(restaurant?.id);
+  const users = usersData?.users || [];
 
   const handleAddUser = () => {
     if (!restaurant) return;
-    const newUser: User = {
-      id: `user_${Date.now()}`,
-      restaurantId: restaurant.id,
-      name,
-      email,
-      mobile: '',
-      passcode: '1234', // Default passcode
-      role,
-      status: 'active'
-    };
-
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      data.users.push(newUser);
-      saveRestaurantData(restaurant.id, data);
-      loadUsers();
-    }
-
-    setName('');
-    setEmail('');
-    setRole('waiter');
-    setShowAddDialog(false);
+    createUser.mutate(
+      {
+        restaurantId: restaurant.id,
+        name,
+        email,
+        mobile: '',
+        passcode: '1234',
+        role,
+      },
+      {
+        onSuccess: () => {
+          setName('');
+          setEmail('');
+          setRole('waiter');
+          setShowAddDialog(false);
+        },
+      }
+    );
   };
 
   const handleEditUser = () => {
     if (!editingUser || !restaurant) return;
-
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      const index = data.users.findIndex(u => u.id === editingUser.id);
-      if (index !== -1) {
-        data.users[index] = { ...editingUser, name, email, role };
-        saveRestaurantData(restaurant.id, data);
-        loadUsers();
+    updateUser.mutate(
+      { userId: editingUser.id, name, email, role },
+      {
+        onSuccess: () => {
+          setEditingUser(null);
+          setShowEditDialog(false);
+        },
       }
-    }
-
-    setEditingUser(null);
-    setShowEditDialog(false);
+    );
   };
 
   const handleDeleteUser = (userId: string) => {
     if (!restaurant) return;
     if (confirm('Are you sure you want to delete this user?')) {
-      const data = getRestaurantData(restaurant.id);
-      if (data) {
-        data.users = data.users.filter(u => u.id !== userId);
-        saveRestaurantData(restaurant.id, data);
-        loadUsers();
-      }
+      deleteUser.mutate(userId);
     }
   };
 
   const toggleUserStatus = (user: User) => {
     if (!restaurant) return;
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      const index = data.users.findIndex(u => u.id === user.id);
-      if (index !== -1) {
-        data.users[index].status = user.status === 'active' ? 'inactive' : 'active';
-        saveRestaurantData(restaurant.id, data);
-        loadUsers();
-      }
-    }
+    updateUser.mutate({
+      userId: user.id,
+      status: user.status === 'active' ? 'inactive' : 'active',
+    });
   };
 
   const openEditDialog = (user: User) => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import type { Table, Order } from '@/services/dataService';
+import type { Table, Order } from '@/types/restaurant';
 import { TableCard } from './TableCard';
 
 interface TableGridProps {

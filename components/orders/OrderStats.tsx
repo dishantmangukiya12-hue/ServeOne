@@ -1,7 +1,7 @@
 "use client";
 
 import { QrCode } from 'lucide-react';
-import type { Table, Order } from '@/services/dataService';
+import type { Table, Order } from '@/types/restaurant';
 
 interface OrderStatsProps {
   tables: Table[];

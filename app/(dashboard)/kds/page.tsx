@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useDataRefresh } from '@/hooks/useServerSync';
+import { useOrders, useUpdateOrder } from '@/hooks/api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChefHat, Clock, Volume2, VolumeX, CheckCircle2, Utensils, ArrowRight } from 'lucide-react';
-import type { Order, OrderStatus, OrderItem } from '@/services/dataService';
-import { getRestaurantData, updateOrderStatus, updateOrderItemStatus } from '@/services/dataService';
+import type { Order, OrderItem } from '@/types/restaurant';
 import { toast } from 'sonner';
+
+type OrderStatus = 'active' | 'preparing' | 'ready' | 'served' | 'closed' | 'cancelled' | 'pending_payment';
 
 const statusConfig: Record<OrderStatus, { label: string; color: string; bgColor: string; nextStatus: OrderStatus | null }> = {
   active: { label: 'New', color: 'text-info', bgColor: 'bg-info/10 border-info/20', nextStatus: 'preparing' },
@@ -31,39 +32,27 @@ const itemStatusConfig = {
 export default function KDS() {
   const navigate = useNavigate();
   const { restaurant } = useAuth();
-  const [orders, setOrders] = useState<Order[]>([]);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [filter, setFilter] = useState<OrderStatus | 'all'>('all');
-  const [lastOrderCount, setLastOrderCount] = useState(0);
+  const lastOrderCountRef = useRef(0);
 
-  const loadOrders = useCallback(() => {
-    if (!restaurant) return;
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      // Get orders with at least one unserved item
-      const kitchenOrders = data.orders.filter(o => {
-        const hasUnservedItems = o.items.some(i => !i.status || i.status !== 'served');
-        const isActiveOrder = ['active', 'preparing', 'ready'].includes(o.status);
-        return isActiveOrder && hasUnservedItems;
-      }).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const { data: ordersData } = useOrders(restaurant?.id, { status: 'active', limit: 10000 });
+  const updateOrder = useUpdateOrder(restaurant?.id);
 
-      // Play sound if new order arrived
-      if (soundEnabled && kitchenOrders.length > lastOrderCount && lastOrderCount > 0) {
-        playNotificationSound();
-      }
+  // Get kitchen orders filtered
+  const orders = (ordersData?.orders || []).filter(o => {
+    const hasUnservedItems = o.items.some(i => !i.status || i.status !== 'served');
+    const isActiveOrder = ['active', 'preparing', 'ready'].includes(o.status);
+    return isActiveOrder && hasUnservedItems;
+  }).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-      setLastOrderCount(kitchenOrders.length);
-      setOrders(kitchenOrders);
-    }
-  }, [restaurant, soundEnabled, lastOrderCount]);
-
+  // Sound notification for new orders
   useEffect(() => {
-    loadOrders();
-    const interval = setInterval(loadOrders, 5000); // Refresh every 5 seconds
-    return () => clearInterval(interval);
-  }, [loadOrders]);
-
-  useDataRefresh(loadOrders);
+    if (soundEnabled && orders.length > lastOrderCountRef.current && lastOrderCountRef.current > 0) {
+      playNotificationSound();
+    }
+    lastOrderCountRef.current = orders.length;
+  }, [orders.length, soundEnabled]);
 
   const playNotificationSound = () => {
     // Create a simple beep sound
@@ -97,15 +86,24 @@ export default function KDS() {
     const nextStatus = nextStatusMap[currentStatus];
     
     if (nextStatus) {
-      updateOrderItemStatus(restaurant.id, orderId, item.id, nextStatus);
+      // Find the order and update item status via API
+      const order = orders.find(o => o.id === orderId);
+      if (!order) return;
+      
+      const updatedItems = order.items.map(i =>
+        i.id === item.id ? { ...i, status: nextStatus } : i
+      );
+
+      updateOrder.mutate({
+        orderId,
+        items: updatedItems as unknown as Record<string, unknown>[],
+      });
       
       if (nextStatus === 'served') {
         toast.success(`${item.name} served`);
       } else if (nextStatus === 'ready') {
         toast.success(`${item.name} ready for pickup`);
       }
-      
-      loadOrders();
     }
   };
 
@@ -113,8 +111,7 @@ export default function KDS() {
     if (!restaurant) return;
     const nextStatus = statusConfig[currentStatus].nextStatus;
     if (nextStatus) {
-      updateOrderStatus(restaurant.id, orderId, nextStatus);
-      loadOrders();
+      updateOrder.mutate({ orderId, status: nextStatus });
 
       if (nextStatus === 'ready') {
         toast.success('Order marked as ready for pickup!');

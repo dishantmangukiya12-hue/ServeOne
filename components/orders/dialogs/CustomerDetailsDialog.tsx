@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { User, Users, Utensils, Package, Truck, Bike, History, UserCheck } from 'lucide-react';
-import type { Table, OrderChannel, Customer, Order, User as StaffUser } from '@/services/dataService';
+import type { Table, OrderChannel, Customer, Order, User as StaffUser } from '@/types/restaurant';
 import { CustomerLookup } from '../CustomerLookup';
 
 const channels: { id: OrderChannel; name: string; icon: React.ComponentType<{ className?: string }> }[] = [

@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-
-// PUT /api/tables/[id] - Update table (status, capacity, merge)
+import { broadcastInvalidation } from "@/lib/sse";
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -38,6 +37,8 @@ export async function PUT(
       where: { id },
       data: updateData,
     });
+
+    broadcastInvalidation(table.restaurantId, "tables");
 
     return NextResponse.json({ table: updated });
   } catch (error) {
@@ -78,6 +79,8 @@ export async function DELETE(
     await prisma.table.delete({
       where: { id },
     });
+
+    broadcastInvalidation(table.restaurantId, "tables");
 
     return NextResponse.json({ ok: true });
   } catch (error) {

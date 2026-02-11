@@ -1,13 +1,13 @@
-"use client";
+﻿"use client";
 
 
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { useDataRefresh } from '@/hooks/useServerSync';
+import { useOrders, useInventory } from '@/hooks/api';
 
 import { Card } from '@/components/ui/card';
 
@@ -15,9 +15,7 @@ import { Button } from '@/components/ui/button';
 
 import { TrendingUp, ChevronDown, Calendar, DollarSign, ShoppingBag, Users, Package, Clock, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
 
-import type { Order } from '@/services/dataService';
-
-import { getRestaurantData, getTodayOrders, getWeeklyOrders, getMonthlyOrders } from '@/services/dataService';
+import type { Order } from '@/types/restaurant';
 
 import {
 
@@ -97,49 +95,9 @@ const COLORS = ['#10b981', '#059669', '#f59e0b', '#ef4444', '#8b5cf6', '#6b7280'
 
 export default function Dashboard() {
 
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const { restaurant } = useAuth();
-
-  const [stats, setStats] = useState<Stats>({
-
-    totalOrders: 0,
-
-    todayRevenue: 0,
-
-    activeOrders: 0,
-
-    avgOrderValue: 0,
-
-    channelStats: {
-
-      dineIn: { orders: 0, amount: 0 },
-
-      takeAway: { orders: 0, amount: 0 },
-
-      homeDelivery: { orders: 0, amount: 0 },
-
-      swiggy: { orders: 0, amount: 0 },
-
-      zomato: { orders: 0, amount: 0 },
-
-      other: { orders: 0, amount: 0 },
-
-    },
-
-    comparison: {
-
-      totalOrders: { prev: 0, change: 0 },
-
-      revenue: { prev: 0, change: 0 },
-
-      avgOrderValue: { prev: 0, change: 0 },
-
-    }
-
-  });
-
-  const [orders, setOrders] = useState<Order[]>([]);
 
   const [salesView, setSalesView] = useState<'revenue' | 'orders'>('revenue');
 
@@ -147,364 +105,153 @@ export default function Dashboard() {
 
   const [showDateDropdown, setShowDateDropdown] = useState(false);
 
-  const [inventoryAlerts, setInventoryAlerts] = useState(0);
-
 
 
   const dateOptions = ['Today', 'Yesterday', 'This Week', 'This Month', 'Last Month'];
 
-
-
-  const loadDashboardData = useCallback(() => {
-
-    if (!restaurant) return;
-
-    const data = getRestaurantData(restaurant.id);
-
-    if (!data) {
-
-      return;
-
-    }
-
-
-
-    // Check inventory alerts
-
-    if (data.settings.enableInventory) {
-
-      const alerts = data.inventory.filter(item =>
-
-        item.quantity <= (item.minThreshold || 10)
-
-      ).length;
-
-      setInventoryAlerts(alerts);
-
-    }
-
-
-
-    let filteredOrders: Order[] = [];
-
-
+  // Compute current and previous period date ranges
+  const { currentDates, prevDates } = useMemo(() => {
+    const now = new Date();
+    let startDate: Date;
+    let endDate: Date;
+    let prevStart: Date;
+    let prevEnd: Date;
 
     switch (dateRange) {
-
       case 'Today':
-
-        filteredOrders = getTodayOrders(restaurant.id);
-
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 1);
+        prevStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+        prevEnd = new Date(prevStart);
+        prevEnd.setDate(prevEnd.getDate() + 1);
         break;
-
-      case 'Yesterday': {
-
-        const yesterday = new Date();
-
-        yesterday.setDate(yesterday.getDate() - 1);
-
-        yesterday.setHours(0, 0, 0, 0);
-
-        const yesterdayEnd = new Date(yesterday);
-
-        yesterdayEnd.setDate(yesterdayEnd.getDate() + 1);
-
-        filteredOrders = data.orders.filter(o => {
-
-          const date = new Date(o.createdAt);
-
-          return date >= yesterday && date < yesterdayEnd;
-
-        });
-
+      case 'Yesterday':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+        endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 1);
+        prevStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2);
+        prevEnd = new Date(prevStart);
+        prevEnd.setDate(prevEnd.getDate() + 1);
         break;
-
-      }
-
       case 'This Week':
-
-        filteredOrders = getWeeklyOrders(restaurant.id);
-
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - now.getDay());
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 7);
+        prevStart = new Date(startDate);
+        prevStart.setDate(prevStart.getDate() - 7);
+        prevEnd = new Date(startDate);
         break;
-
       case 'This Month':
-
-        filteredOrders = getMonthlyOrders(restaurant.id);
-
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        prevEnd = new Date(now.getFullYear(), now.getMonth(), 0);
         break;
-
-      case 'Last Month': {
-
-        const now = new Date();
-
-        const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-
-        const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-
-        filteredOrders = data.orders.filter(o => {
-
-          const date = new Date(o.createdAt);
-
-          return date >= lastMonthStart && date <= lastMonthEnd;
-
-        });
-
+      case 'Last Month':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+        prevStart = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+        prevEnd = new Date(now.getFullYear(), now.getMonth() - 1, 0);
         break;
-
-      }
-
       default:
-
-        filteredOrders = getTodayOrders(restaurant.id);
-
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 1);
+        prevStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+        prevEnd = new Date(prevStart);
+        prevEnd.setDate(prevEnd.getDate() + 1);
     }
 
+    return {
+      currentDates: { startDate: startDate.toISOString(), endDate: endDate.toISOString() },
+      prevDates: { startDate: prevStart.toISOString(), endDate: prevEnd.toISOString() },
+    };
+  }, [dateRange]);
 
+  // Fetch current period orders
+  const { data: ordersData } = useOrders(restaurant?.id, {
+    startDate: currentDates.startDate,
+    endDate: currentDates.endDate,
+    limit: 10000,
+  });
 
-    setOrders(filteredOrders);
+  // Fetch previous period orders for comparison
+  const { data: prevOrdersData } = useOrders(restaurant?.id, {
+    startDate: prevDates.startDate,
+    endDate: prevDates.endDate,
+    status: 'closed',
+    limit: 10000,
+  });
 
+  // Fetch inventory for alerts
+  const { data: inventoryData } = useInventory(restaurant?.id);
+  const { data: restaurantData } = useOrders(restaurant?.id, { limit: 0 }); // Just for restaurant context
 
+  const orders = useMemo(() => ordersData?.orders || [], [ordersData]);
 
-    // Calculate stats - FIXED: properly separate by channel
+  // Compute inventory alerts
+  const inventoryAlerts = useMemo(() => {
+    const items = inventoryData?.items || [];
+    return items.filter((item: { quantity: number; minThreshold?: number }) =>
+      item.quantity <= (item.minThreshold || 10)
+    ).length;
+  }, [inventoryData]);
 
-    const closedOrders = filteredOrders.filter(o => o.status === 'closed');
-
-    const activeOrders = filteredOrders.filter(o =>
-
+  // Compute all stats from orders
+  const stats = useMemo(() => {
+    const closedOrders = orders.filter(o => o.status === 'closed');
+    const activeOrders = orders.filter(o =>
       o.status === 'active' || o.status === 'preparing' || o.status === 'ready'
-
     );
-
-
 
     const todayRevenue = closedOrders.reduce((sum, o) => sum + (o.amountPaid || o.total), 0);
 
-
-
-    // FIXED: Proper channel breakdown
-
-    const channelStats = {
-
+    const channelStats: Stats['channelStats'] = {
       dineIn: { orders: 0, amount: 0 },
-
       takeAway: { orders: 0, amount: 0 },
-
       homeDelivery: { orders: 0, amount: 0 },
-
       swiggy: { orders: 0, amount: 0 },
-
       zomato: { orders: 0, amount: 0 },
-
       other: { orders: 0, amount: 0 },
-
     };
-
-
 
     closedOrders.forEach(order => {
-
-      const channel = order.channel || 'dineIn';
-
+      const channel = (order.channel || 'dineIn') as keyof typeof channelStats;
       if (channelStats[channel]) {
-
         channelStats[channel].orders++;
-
         channelStats[channel].amount += order.amountPaid || order.total;
-
       }
-
     });
 
-
-
-    // Calculate previous period stats for comparison
-
-    let prevPeriodOrders: Order[] = [];
-
-    const now = new Date();
-
-
-
-    switch (dateRange) {
-
-      case 'Today': {
-
-        // Compare to yesterday
-
-        const yesterday = new Date(now);
-
-        yesterday.setDate(yesterday.getDate() - 1);
-
-        yesterday.setHours(0, 0, 0, 0);
-
-        const yesterdayEnd = new Date(yesterday);
-
-        yesterdayEnd.setDate(yesterdayEnd.getDate() + 1);
-
-        prevPeriodOrders = data.orders.filter(o => {
-
-          const date = new Date(o.createdAt);
-
-          return date >= yesterday && date < yesterdayEnd && o.status === 'closed';
-
-        });
-
-        break;
-
-      }
-
-      case 'Yesterday': {
-
-        // Compare to day before yesterday
-
-        const dayBefore = new Date(now);
-
-        dayBefore.setDate(dayBefore.getDate() - 2);
-
-        dayBefore.setHours(0, 0, 0, 0);
-
-        const dayBeforeEnd = new Date(dayBefore);
-
-        dayBeforeEnd.setDate(dayBeforeEnd.getDate() + 1);
-
-        prevPeriodOrders = data.orders.filter(o => {
-
-          const date = new Date(o.createdAt);
-
-          return date >= dayBefore && date < dayBeforeEnd && o.status === 'closed';
-
-        });
-
-        break;
-
-      }
-
-      case 'This Week': {
-
-        // Compare to last week
-
-        const lastWeekStart = new Date(now);
-
-        lastWeekStart.setDate(lastWeekStart.getDate() - 14);
-
-        const lastWeekEnd = new Date(now);
-
-        lastWeekEnd.setDate(lastWeekEnd.getDate() - 7);
-
-        prevPeriodOrders = data.orders.filter(o => {
-
-          const date = new Date(o.createdAt);
-
-          return date >= lastWeekStart && date < lastWeekEnd && o.status === 'closed';
-
-        });
-
-        break;
-
-      }
-
-      case 'This Month': {
-
-        // Compare to last month
-
-        const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-
-        const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-
-        prevPeriodOrders = data.orders.filter(o => {
-
-          const date = new Date(o.createdAt);
-
-          return date >= lastMonthStart && date <= lastMonthEnd && o.status === 'closed';
-
-        });
-
-        break;
-
-      }
-
-      case 'Last Month': {
-
-        // Compare to month before last
-
-        const monthBeforeStart = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-
-        const monthBeforeEnd = new Date(now.getFullYear(), now.getMonth() - 1, 0);
-
-        prevPeriodOrders = data.orders.filter(o => {
-
-          const date = new Date(o.createdAt);
-
-          return date >= monthBeforeStart && date <= monthBeforeEnd && o.status === 'closed';
-
-        });
-
-        break;
-
-      }
-
-    }
-
-
-
-    const prevRevenue = prevPeriodOrders.reduce((sum, o) => sum + (o.amountPaid || o.total), 0);
-
+    // Previous period comparison
+    const prevPeriodOrders = prevOrdersData?.orders || [];
+    const prevRevenue = prevPeriodOrders.reduce((sum: number, o: Order) => sum + (o.amountPaid || o.total), 0);
     const prevOrderCount = prevPeriodOrders.length;
-
     const prevAvgOrder = prevOrderCount > 0 ? Math.round(prevRevenue / prevOrderCount) : 0;
 
-
-
     const calcChange = (current: number, prev: number) => {
-
       if (prev === 0) return current > 0 ? 100 : 0;
-
       return Math.round(((current - prev) / prev) * 100);
-
     };
-
-
 
     const currentAvgOrder = closedOrders.length > 0 ? Math.round(todayRevenue / closedOrders.length) : 0;
 
-
-
-    setStats({
-
+    return {
       totalOrders: closedOrders.length,
-
       todayRevenue,
-
       activeOrders: activeOrders.length,
-
       avgOrderValue: currentAvgOrder,
-
       channelStats,
-
       comparison: {
-
         totalOrders: { prev: prevOrderCount, change: calcChange(closedOrders.length, prevOrderCount) },
-
         revenue: { prev: prevRevenue, change: calcChange(todayRevenue, prevRevenue) },
-
         avgOrderValue: { prev: prevAvgOrder, change: calcChange(currentAvgOrder, prevAvgOrder) },
-
       }
-
-    });
-
-  }, [restaurant, dateRange]);
-
-
-
-  useEffect(() => {
-
-    loadDashboardData();
-
-  }, [loadDashboardData]);
-
-  // Re-load when server sync brings new data from another device
-  useDataRefresh(loadDashboardData);
+    };
+  }, [orders, prevOrdersData]);
 
 
 
@@ -660,7 +407,7 @@ export default function Dashboard() {
 
               <button
 
-                onClick={() => navigate('/inventory')}
+                onClick={() => router.push('/inventory')}
 
                 className="flex items-center gap-2 bg-destructive/10 px-3 md:px-4 py-2 rounded-xl border border-destructive/20 text-destructive hover:bg-destructive/15 transition-colors text-sm"
 
@@ -738,7 +485,7 @@ export default function Dashboard() {
 
           <button
 
-            onClick={() => navigate('/orders')}
+            onClick={() => router.push('/orders')}
 
             className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors whitespace-nowrap"
 
@@ -752,7 +499,7 @@ export default function Dashboard() {
 
           <button
 
-            onClick={() => navigate('/kds')}
+            onClick={() => router.push('/kds')}
 
             className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors whitespace-nowrap"
 
@@ -766,7 +513,7 @@ export default function Dashboard() {
 
           <button
 
-            onClick={() => navigate('/reservations')}
+            onClick={() => router.push('/reservations')}
 
             className="flex items-center gap-2 bg-warning text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-warning/90 transition-colors whitespace-nowrap"
 
@@ -780,7 +527,7 @@ export default function Dashboard() {
 
           <button
 
-            onClick={() => navigate('/inventory')}
+            onClick={() => router.push('/inventory')}
 
             className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors whitespace-nowrap"
 
@@ -800,7 +547,7 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
 
-          <Card className="p-3 md:p-5 bg-card border-border shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate('/orders')}>
+          <Card className="p-3 md:p-5 bg-card border-border shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push('/orders')}>
 
             <div className="flex items-start justify-between">
 
@@ -862,7 +609,7 @@ export default function Dashboard() {
 
                 <p className="text-muted-foreground text-xs md:text-sm">Revenue</p>
 
-                <p className="text-xl md:text-2xl font-bold text-foreground mt-1">₹{stats.todayRevenue.toLocaleString()}</p>
+                <p className="text-xl md:text-2xl font-bold text-foreground mt-1">â‚¹{stats.todayRevenue.toLocaleString()}</p>
 
                 {/* Comparison indicator */}
 
@@ -908,7 +655,7 @@ export default function Dashboard() {
 
           </Card>
 
-          <Card className="p-3 md:p-5 bg-card border-border shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate('/kds')}>
+          <Card className="p-3 md:p-5 bg-card border-border shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push('/kds')}>
 
             <div className="flex items-start justify-between">
 
@@ -940,7 +687,7 @@ export default function Dashboard() {
 
                 <p className="text-xl md:text-2xl font-bold text-foreground mt-1">
 
-                  ₹{stats.avgOrderValue}
+                  â‚¹{stats.avgOrderValue}
 
                 </p>
 
@@ -1130,19 +877,19 @@ export default function Dashboard() {
 
                 <div className="text-center">
 
-                  <div className="text-5xl mb-3">📊</div>
+                  <div className="text-5xl mb-3">ðŸ“Š</div>
 
                   <p>No sales data for {dateRange.toLowerCase()}</p>
 
                   <button
 
-                    onClick={() => navigate('/orders')}
+                    onClick={() => router.push('/orders')}
 
                     className="text-primary text-sm mt-2 hover:underline"
 
                   >
 
-                    Create your first order →
+                    Create your first order â†’
 
                   </button>
 
@@ -1232,7 +979,7 @@ export default function Dashboard() {
 
                     <span className="capitalize text-muted-foreground">{channel.replace(/([A-Z])/g, ' $1').trim()}</span>
 
-                    <span className="font-medium">₹{stat.amount.toLocaleString()}</span>
+                    <span className="font-medium">â‚¹{stat.amount.toLocaleString()}</span>
 
                   </div>
 
@@ -1280,7 +1027,7 @@ export default function Dashboard() {
 
                         <td className="text-muted-foreground">{item.quantity}</td>
 
-                        <td className="font-medium text-foreground">₹{item.revenue.toLocaleString()}</td>
+                        <td className="font-medium text-foreground">â‚¹{item.revenue.toLocaleString()}</td>
 
                       </tr>
 
@@ -1336,7 +1083,7 @@ export default function Dashboard() {
 
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
 
-                    formatter={(value: number) => `₹${value.toLocaleString()}`}
+                    formatter={(value: number) => `â‚¹${value.toLocaleString()}`}
 
                   />
 
@@ -1364,13 +1111,13 @@ export default function Dashboard() {
 
             <button
 
-              onClick={() => navigate('/reports')}
+              onClick={() => router.push('/reports')}
 
               className="text-primary text-xs md:text-sm hover:underline"
 
             >
 
-              View All →
+              View All â†’
 
             </button>
 
@@ -1412,7 +1159,7 @@ export default function Dashboard() {
 
                       <td className="text-muted-foreground">{order.items.length} items</td>
 
-                      <td className="font-medium text-foreground">₹{order.total.toLocaleString()}</td>
+                      <td className="font-medium text-foreground">â‚¹{order.total.toLocaleString()}</td>
 
                       <td>
 

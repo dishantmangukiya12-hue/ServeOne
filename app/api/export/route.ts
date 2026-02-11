@@ -18,6 +18,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // SEC: Only admin and manager can export data
+  if (!session.user.role || !['admin', 'manager'].includes(session.user.role)) {
+    return NextResponse.json({ error: "Only admins and managers can export data" }, { status: 403 });
+  }
+
   try {
     // Fetch all data in parallel
     const [

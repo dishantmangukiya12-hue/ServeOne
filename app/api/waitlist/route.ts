@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createWaitlistSchema } from "@/lib/validations";
+import { broadcastInvalidation } from "@/lib/sse";
 
 // GET /api/waitlist?restaurantId=xxx - List active waitlist entries
 export async function GET(request: Request) {
@@ -71,6 +72,8 @@ export async function POST(request: Request) {
         addedAt: new Date(),
       },
     });
+
+    broadcastInvalidation(data.restaurantId, "waitlist");
 
     return NextResponse.json({ entry }, { status: 201 });
   } catch (error) {

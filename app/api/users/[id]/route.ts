@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import bcrypt from "bcryptjs";
+import { broadcastInvalidation } from "@/lib/sse";
 
 const ALLOWED_ROLES = ["admin", "manager", "waiter", "cashier", "kitchen", "staff"];
 
@@ -56,14 +57,25 @@ export async function PUT(
     }
   }
 
-  if (status !== undefined) updateData.status = status;
+  if (status !== undefined) {
+    // SEC: Validate status against allowlist
+    const ALLOWED_STATUSES = ['active', 'inactive'];
+    if (!ALLOWED_STATUSES.includes(status)) {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    }
+    updateData.status = status;
+  }
 
   const updated = await prisma.user.update({
     where: { id },
     data: updateData,
   });
 
-  return NextResponse.json({ user: updated });
+  broadcastInvalidation(user.restaurantId, "users");
+
+  // SEC: Strip passcode from response
+  const { passcode: _pwd, ...safeUser } = updated;
+  return NextResponse.json({ user: safeUser });
 }
 
 // DELETE /api/users/[id] - Delete user
@@ -96,6 +108,8 @@ export async function DELETE(
     where: { id },
     data: { deletedAt: new Date() },
   });
+
+  broadcastInvalidation(user.restaurantId, "users");
 
   return NextResponse.json({ ok: true });
 }

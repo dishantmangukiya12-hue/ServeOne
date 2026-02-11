@@ -2,7 +2,7 @@
 
 
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -16,13 +16,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 
 import { Calendar, User, Phone, Plus, Check, X, ChevronLeft, ChevronRight, Clock, Users, Bell, MessageSquare } from 'lucide-react';
 
-import type { Reservation, Table } from '@/services/dataService';
+import type { Reservation, Table } from '@/types/restaurant';
 
-import { getRestaurantData, createReservation, updateReservation } from '@/services/dataService';
+import { useReservations, useCreateReservation, useUpdateReservation, useTables } from '@/hooks/api';
 
 import { toast } from 'sonner';
-
-import { useDataRefresh } from '@/hooks/useServerSync';
 
 
 
@@ -53,10 +51,6 @@ interface WaitlistEntry {
 export default function Reservations() {
 
   const { restaurant } = useAuth();
-
-  const [reservations, setReservations] = useState<Reservation[]>([]);
-
-  const [tables, setTables] = useState<Table[]>([]);
 
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -98,39 +92,21 @@ export default function Reservations() {
 
   const [notes, setNotes] = useState('');
 
+  // React Query hooks
+  const { data: reservationsData } = useReservations(restaurant?.id);
+  const { data: tablesData } = useTables(restaurant?.id);
+  const createReservationMutation = useCreateReservation(restaurant?.id);
+  const updateReservationMutation = useUpdateReservation(restaurant?.id);
 
+  const reservations = useMemo(() => reservationsData?.reservations || [], [reservationsData]);
+  const tables = useMemo(() => tablesData?.tables?.filter((t: Table) => !t.mergedWith) || [], [tablesData]);
 
+  // Load waitlist from localStorage
   useEffect(() => {
-
-    loadData();
-
-  }, [restaurant?.id, selectedDate]);
-
-
-
-  const loadData = () => {
-
     if (!restaurant) return;
-
-    const data = getRestaurantData(restaurant.id);
-
-    if (data) {
-
-      setReservations(data.reservations);
-
-      setTables(data.tables);
-
-      // Load waitlist from localStorage
-
-      const savedWaitlist = JSON.parse(localStorage.getItem(`waitlist_${restaurant.id}`) || '[]');
-
-      setWaitlist(savedWaitlist.filter((w: WaitlistEntry) => w.status === 'waiting' || w.status === 'notified'));
-
-    }
-
-  };
-
-  useDataRefresh(loadData);
+    const savedWaitlist = JSON.parse(localStorage.getItem(`waitlist_${restaurant.id}`) || '[]');
+    setWaitlist(savedWaitlist.filter((w: WaitlistEntry) => w.status === 'waiting' || w.status === 'notified'));
+  }, [restaurant?.id]);
 
 
 
@@ -304,8 +280,6 @@ export default function Reservations() {
 
     setSelectedTableId('');
 
-    loadData();
-
   };
 
 
@@ -370,13 +344,23 @@ export default function Reservations() {
 
 
 
-    createReservation(restaurant.id, reservation);
-
-    resetForm();
-
-    setShowAddDialog(false);
-
-    loadData();
+    createReservationMutation.mutate(
+      {
+        restaurantId: restaurant.id,
+        customerName,
+        customerMobile,
+        partySize: parseInt(partySize) || 2,
+        date: reservationDate,
+        time: reservationTime,
+        notes: notes || undefined,
+      } as any,
+      {
+        onSuccess: () => {
+          resetForm();
+          setShowAddDialog(false);
+        },
+      }
+    );
 
   };
 
@@ -394,23 +378,20 @@ export default function Reservations() {
 
 
 
-    updateReservation(restaurant.id, selectedReservation.id, {
-
-      status: 'seated',
-
-      tableId: selectedTableId
-
-    });
-
-
-
-    setShowSeatDialog(false);
-
-    setSelectedReservation(null);
-
-    loadData();
-
-    toast.success('Guest seated successfully');
+    updateReservationMutation.mutate(
+      {
+        reservationId: selectedReservation.id,
+        status: 'seated',
+        tableId: selectedTableId,
+      },
+      {
+        onSuccess: () => {
+          setShowSeatDialog(false);
+          setSelectedReservation(null);
+          toast.success('Guest seated successfully');
+        },
+      }
+    );
 
   };
 
@@ -422,9 +403,7 @@ export default function Reservations() {
 
     if (confirm('Are you sure you want to cancel this reservation?')) {
 
-      updateReservation(restaurant.id, reservationId, { status: 'cancelled' });
-
-      loadData();
+      updateReservationMutation.mutate({ reservationId: reservationId, status: 'cancelled' });
 
     }
 
@@ -438,9 +417,7 @@ export default function Reservations() {
 
     if (confirm('Mark this reservation as no-show?')) {
 
-      updateReservation(restaurant.id, reservationId, { status: 'noShow' });
-
-      loadData();
+      updateReservationMutation.mutate({ reservationId: reservationId, status: 'noShow' });
 
     }
 

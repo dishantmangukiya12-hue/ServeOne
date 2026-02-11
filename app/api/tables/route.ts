@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createTableSchema } from "@/lib/validations";
 import { checkPlanLimit } from "@/lib/plan-check";
+import { broadcastInvalidation } from "@/lib/sse";
 
 // GET /api/tables?restaurantId=xxx - List tables
 export async function GET(request: Request) {
@@ -75,6 +76,8 @@ export async function POST(request: Request) {
       },
     });
 
+    broadcastInvalidation(data.restaurantId, "tables");
+
     return NextResponse.json({ table }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: "Failed to create table" }, { status: 500 });
@@ -97,6 +100,7 @@ export async function DELETE(request: Request) {
 
   try {
     await prisma.table.deleteMany({ where: { restaurantId } });
+    broadcastInvalidation(restaurantId, "tables");
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: "Failed to delete tables" }, { status: 500 });

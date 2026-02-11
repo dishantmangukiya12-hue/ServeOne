@@ -1,6 +1,6 @@
 "use client";
 
-import type { Order } from '@/services/dataService';
+import type { Order } from '@/types/restaurant';
 
 interface BillPrintProps {
   order: Order | null;

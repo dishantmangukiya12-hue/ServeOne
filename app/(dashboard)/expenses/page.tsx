@@ -2,11 +2,11 @@
 
 
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 
 import { useAuth } from '@/contexts/AuthContext';
 
-import { useDataRefresh } from '@/hooks/useServerSync';
+import { useExpenses, useCreateExpense, useDeleteExpense } from '@/hooks/api';
 
 import { Card } from '@/components/ui/card';
 
@@ -18,9 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 
 import { Receipt, Plus, Calendar, Trash2, ChevronDown, Wallet, CreditCard, Smartphone, Building2, Banknote, Tag, Settings2 } from 'lucide-react';
 
-import type { Expense, ExpenseCategory } from '@/services/dataService';
-
-import { getRestaurantData, addExpense, deleteExpense, addExpenseCategory, updateExpenseCategory, deleteExpenseCategory } from '@/services/dataService';
+import type { Expense, ExpenseCategory } from '@/types/restaurant';
 
 import { toast } from 'sonner';
 
@@ -29,8 +27,6 @@ import { toast } from 'sonner';
 export default function Expenses() {
 
   const { restaurant } = useAuth();
-
-  const [expenses, setExpenses] = useState<Expense[]>([]);
 
   const [showAddDialog, setShowAddDialog] = useState(false);
 
@@ -78,37 +74,13 @@ export default function Expenses() {
 
 
 
-  const loadData = useCallback(() => {
+  const { data: expensesData } = useExpenses(restaurant?.id);
 
-    if (!restaurant) return;
+  const createExpense = useCreateExpense(restaurant?.id);
 
-    const data = getRestaurantData(restaurant.id);
+  const deleteExpenseMutation = useDeleteExpense(restaurant?.id);
 
-    if (data) {
-
-      setExpenses(data.expenses);
-
-      setExpenseCategories(data.expenseCategories || []);
-
-      if (data.expenseCategories?.length > 0 && !expenseCategory) {
-
-        setExpenseCategory(data.expenseCategories[0].id);
-
-      }
-
-    }
-
-  }, [restaurant, expenseCategory]);
-
-
-
-  useEffect(() => {
-
-    loadData();
-
-  }, [loadData, dateRange, customStartDate, customEndDate]);
-
-  useDataRefresh(loadData);
+  const expenses = expensesData?.expenses || [];
 
 
 
@@ -126,43 +98,39 @@ export default function Expenses() {
 
 
 
-    const expense: Expense = {
+    createExpense.mutate(
 
-      id: `exp_${Date.now()}`,
+      {
 
-      restaurantId: restaurant.id,
+        restaurantId: restaurant.id,
 
-      amount: parseFloat(amount),
+        amount: parseFloat(amount),
 
-      description: description || 'Expense',
+        description: description || 'Expense',
 
-      date: expenseDate,
+        date: expenseDate,
 
-      createdBy: 'Admin',
+        createdBy: 'Admin',
 
-      category: expenseCategories.find(c => c.id === expenseCategory)?.name || expenseCategory,
+        category: expenseCategories.find(c => c.id === expenseCategory)?.name || expenseCategory,
 
-      paymentMethod: paymentMethod,
+      },
 
-      vendorName: vendorName || undefined,
+      {
 
-      receiptNumber: receiptNumber || undefined,
+        onSuccess: () => {
 
-      notes: notes || undefined,
+          resetForm();
 
-    };
+          setShowAddDialog(false);
 
+          toast.success('Expense added');
 
+        },
 
-    addExpense(restaurant.id, expense);
+      }
 
-    resetForm();
-
-    setShowAddDialog(false);
-
-    loadData();
-
-    toast.success('Expense added');
+    );
 
   };
 
@@ -174,9 +142,7 @@ export default function Expenses() {
 
     if (confirm('Delete this expense?')) {
 
-      deleteExpense(restaurant.id, id);
-
-      loadData();
+      deleteExpenseMutation.mutate(id);
 
     }
 
@@ -440,13 +406,12 @@ export default function Expenses() {
 
     };
 
-    addExpenseCategory(restaurant.id, category);
+    // Expense categories stored locally for now (no dedicated API)
+    setExpenseCategories(prev => [...prev, category]);
 
     setNewCategoryName('');
 
     setNewCategoryColor('#10b981');
-
-    loadData();
 
   };
 
@@ -456,21 +421,17 @@ export default function Expenses() {
 
     if (!restaurant || !editingCategory || !newCategoryName.trim()) return;
 
-    updateExpenseCategory(restaurant.id, editingCategory.id, {
-
-      name: newCategoryName.trim(),
-
-      color: newCategoryColor,
-
-    });
+    setExpenseCategories(prev => prev.map(c =>
+      c.id === editingCategory.id
+        ? { ...c, name: newCategoryName.trim(), color: newCategoryColor }
+        : c
+    ));
 
     setEditingCategory(null);
 
     setNewCategoryName('');
 
     setNewCategoryColor('#10b981');
-
-    loadData();
 
   };
 
@@ -482,9 +443,7 @@ export default function Expenses() {
 
     if (confirm('Delete this category? Expenses using this category will not be deleted.')) {
 
-      deleteExpenseCategory(restaurant.id, categoryId);
-
-      loadData();
+      setExpenseCategories(prev => prev.filter(c => c.id !== categoryId));
 
     }
 

@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-
-// PUT /api/menu/categories/[id] - Update category
+import { broadcastInvalidation } from "@/lib/sse";
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -38,6 +37,8 @@ export async function PUT(
       data: updateData,
     });
 
+    broadcastInvalidation(category.restaurantId, "categories");
+
     return NextResponse.json({ category: updated });
   } catch (error) {
     return NextResponse.json({ error: "Failed to update category" }, { status: 500 });
@@ -69,6 +70,8 @@ export async function DELETE(
     await prisma.category.delete({
       where: { id },
     });
+
+    broadcastInvalidation(category.restaurantId, "categories");
 
     return NextResponse.json({ ok: true });
   } catch (error) {

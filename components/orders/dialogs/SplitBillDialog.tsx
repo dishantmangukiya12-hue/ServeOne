@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Users, Receipt, Check } from 'lucide-react';
-import type { Order, OrderItem } from '@/services/dataService';
+import type { Order, OrderItem } from '@/types/restaurant';
 
 interface SplitBillDialogProps {
   open: boolean;

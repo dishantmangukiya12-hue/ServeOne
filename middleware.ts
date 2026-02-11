@@ -54,6 +54,30 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // SEC: Rate limit forgot-password: 5 per hour per IP
+  if (pathname === "/api/auth/forgot-password" && req.method === "POST") {
+    const ip = getClientIp(req);
+    if (!checkRateLimit(`forgot:${ip}`, 5, 3600000)) {
+      return NextResponse.json(
+        { error: "Too many reset attempts. Please try again later." },
+        { status: 429 }
+      );
+    }
+    return NextResponse.next();
+  }
+
+  // SEC: Rate limit reset-password: 10 per hour per IP
+  if (pathname === "/api/auth/reset-password" && req.method === "POST") {
+    const ip = getClientIp(req);
+    if (!checkRateLimit(`reset:${ip}`, 10, 3600000)) {
+      return NextResponse.json(
+        { error: "Too many reset attempts. Please try again later." },
+        { status: 429 }
+      );
+    }
+    return NextResponse.next();
+  }
+
   // Rate limit passcode changes: 5 per hour per IP
   if (
     pathname.startsWith("/api/restaurants/") &&
@@ -82,7 +106,13 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  if (pathname.startsWith("/api/restaurant-store") && req.method === "GET") {
+  // SEC: Allow public access to QR order status check (returns only order ID + status)
+  if (pathname === "/api/qr-orders/status" && req.method === "GET") {
+    return NextResponse.next();
+  }
+
+  // SEC: Allow public access to restaurant menu data for QR ordering
+  if (pathname.startsWith("/api/public/")) {
     return NextResponse.next();
   }
 
@@ -91,7 +121,6 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/order") ||
-    pathname.startsWith("/public") ||
     pathname.startsWith("/images")
   ) {
     return NextResponse.next();

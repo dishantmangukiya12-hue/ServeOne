@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createCategorySchema } from "@/lib/validations";
+import { broadcastInvalidation } from "@/lib/sse";
 
 // GET /api/menu/categories?restaurantId=xxx - List categories
 export async function GET(request: Request) {
@@ -67,6 +68,8 @@ export async function POST(request: Request) {
         sortingOrder: order,
       },
     });
+
+    broadcastInvalidation(data.restaurantId, "categories");
 
     return NextResponse.json({ category }, { status: 201 });
   } catch (error) {

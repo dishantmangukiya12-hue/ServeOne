@@ -1,0 +1,80 @@
+"use client";
+
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
+import type { Table } from "@/types/restaurant";
+import { toast } from "sonner";
+
+interface TablesResponse {
+  tables: Table[];
+  total: number;
+}
+
+interface TableResponse {
+  table: Table;
+}
+
+export function useTables(restaurantId: string | undefined) {
+  return useQuery<TablesResponse>({
+    queryKey: ["tables", restaurantId],
+    queryFn: () => api.get(`/api/tables?restaurantId=${restaurantId}`),
+    enabled: !!restaurantId,
+  });
+}
+
+export function useCreateTable(restaurantId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: {
+      restaurantId: string;
+      tableNumber: string;
+      capacity?: number;
+      status?: string;
+      section?: string;
+    }) => api.post<TableResponse>("/api/tables", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tables", restaurantId] });
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to create table");
+    },
+  });
+}
+
+export function useUpdateTable(restaurantId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ tableId, ...data }: {
+      tableId: string;
+      tableNumber?: string;
+      capacity?: number;
+      status?: string;
+      currentOrderId?: string | null;
+      section?: string;
+      mergedWith?: string;
+    }) => api.put<TableResponse>(`/api/tables/${tableId}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tables", restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ["orders", restaurantId] });
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to update table");
+    },
+  });
+}
+
+export function useDeleteTable(restaurantId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (tableId: string) => api.delete(`/api/tables/${tableId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tables", restaurantId] });
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to delete table");
+    },
+  });
+}

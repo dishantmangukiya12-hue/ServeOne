@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-
-// PUT /api/waitlist/[id] - Update waitlist entry status
+import { broadcastInvalidation } from "@/lib/sse";
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -36,6 +35,8 @@ export async function PUT(
       data: { status },
     });
 
+    broadcastInvalidation(session.user.restaurantId, "waitlist");
+
     return NextResponse.json({ entry: updated });
   } catch (error) {
     return NextResponse.json({ error: "Failed to update waitlist entry" }, { status: 500 });
@@ -66,6 +67,8 @@ export async function DELETE(
     await prisma.waitlistEntry.delete({
       where: { id },
     });
+
+    broadcastInvalidation(session.user.restaurantId, "waitlist");
 
     return NextResponse.json({ ok: true });
   } catch (error) {

@@ -10,10 +10,13 @@ export async function PATCH(
 ) {
   const { restaurantId } = await params;
 
-  // Require authentication - only the restaurant's own admin can change passcode
+  // SEC: Require authentication — only admin can change restaurant passcode
   const session = await getServerSession(authOptions);
   if (!session?.user?.restaurantId || session.user.restaurantId !== restaurantId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (session.user.role !== 'admin') {
+    return NextResponse.json({ error: "Only admins can change the restaurant passcode" }, { status: 403 });
   }
 
   const body = await request.json();
@@ -22,6 +25,14 @@ export async function PATCH(
   if (!passcode || passcode.length < 4) {
     return NextResponse.json(
       { error: "Passcode must be at least 4 characters" },
+      { status: 400 }
+    );
+  }
+
+  // SEC: Cap length to prevent bcrypt hash DoS (bcrypt truncates at 72 bytes anyway)
+  if (passcode.length > 128) {
+    return NextResponse.json(
+      { error: "Passcode must be at most 128 characters" },
       { status: 400 }
     );
   }

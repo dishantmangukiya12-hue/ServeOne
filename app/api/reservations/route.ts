@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createReservationSchema } from "@/lib/validations";
+import { broadcastInvalidation } from "@/lib/sse";
 
 // GET /api/reservations?restaurantId=xxx&date=xxx - List reservations
 export async function GET(request: Request) {
@@ -80,6 +81,8 @@ export async function POST(request: Request) {
         createdAt: new Date(),
       },
     });
+
+    broadcastInvalidation(restaurantId, "reservations");
 
     return NextResponse.json({ reservation }, { status: 201 });
   } catch (error) {

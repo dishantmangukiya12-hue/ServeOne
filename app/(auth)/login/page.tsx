@@ -2,18 +2,16 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { signIn, getSession } from 'next-auth/react';
+import { signIn } from 'next-auth/react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { generateResetOTP, verifyOTPAndReset, getRestaurantData, hydrateRestaurantData } from '@/services/dataService';
+import { api } from '@/lib/api-client';
 import { ArrowRight, Lock, Smartphone, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext';
 import { Logo } from '@/components/Logo';
 
 export default function Login() {
   const router = useRouter();
-  const { login } = useAuth();
   const [mobileNumber, setMobileNumber] = useState('');
   const [passcode, setPasscode] = useState('');
   const [error, setError] = useState('');
@@ -47,21 +45,6 @@ export default function Login() {
     });
 
     if (result?.ok) {
-      const session = await getSession();
-      const sessionUser = session?.user;
-      const restaurantId = sessionUser?.restaurantId;
-      if (restaurantId) {
-        let data = getRestaurantData(restaurantId);
-        if (!data) {
-          data = await hydrateRestaurantData(restaurantId);
-        }
-        if (data) {
-          login(data.restaurant, {
-            userId: sessionUser?.userId,
-            role: sessionUser?.role,
-          });
-        }
-      }
       toast.success('Welcome back!');
       router.push('/home');
       router.refresh();
@@ -79,14 +62,17 @@ export default function Login() {
     }
 
     setForgotLoading(true);
-    const generatedOTP = generateResetOTP(forgotMobile);
-
-    if (generatedOTP) {
-      toast.success('OTP sent to your mobile', {
-        duration: 5000
-      });
-      setForgotStep('otp');
-    } else {
+    try {
+      const res = await api.post<{ success: boolean; otp?: string }>('/api/auth/forgot-password', { mobile: forgotMobile });
+      if (res.success) {
+        if (res.otp) {
+          toast.success(`OTP: ${res.otp}`, { duration: 10000 });
+        } else {
+          toast.success('OTP sent to your mobile', { duration: 5000 });
+        }
+        setForgotStep('otp');
+      }
+    } catch {
       toast.error('Mobile number not found');
     }
     setForgotLoading(false);
@@ -100,7 +86,7 @@ export default function Login() {
     setForgotStep('reset');
   };
 
-  const handleResetPassword = () => {
+  const handleResetPassword = async () => {
     if (newPasscode.length < 4) {
       toast.error('Passcode must be at least 4 characters');
       return;
@@ -110,7 +96,12 @@ export default function Login() {
       return;
     }
 
-    if (verifyOTPAndReset(forgotMobile, otp, newPasscode)) {
+    try {
+      await api.post('/api/auth/reset-password', {
+        mobile: forgotMobile,
+        otp,
+        newPasscode,
+      });
       toast.success('Password reset successful!');
       setShowForgotDialog(false);
       setForgotStep('mobile');
@@ -118,7 +109,7 @@ export default function Login() {
       setOtp('');
       setNewPasscode('');
       setConfirmNewPasscode('');
-    } else {
+    } catch {
       toast.error('Invalid or expired OTP');
     }
   };

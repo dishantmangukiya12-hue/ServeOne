@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { broadcastInvalidation } from "@/lib/sse";
 
 // GET /api/restaurants/[restaurantId] - Get restaurant details
 export async function GET(
@@ -66,6 +67,8 @@ export async function PATCH(
     where: { id: restaurantId },
     data: updateData,
   });
+
+  broadcastInvalidation(restaurantId, "restaurant");
 
   return NextResponse.json({ ok: true });
 }

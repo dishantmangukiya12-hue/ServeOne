@@ -2,7 +2,7 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Printer, Plus, User } from 'lucide-react';
-import type { Table } from '@/services/dataService';
+import type { Table } from '@/types/restaurant';
 
 interface TableMenuDialogProps {
   open: boolean;

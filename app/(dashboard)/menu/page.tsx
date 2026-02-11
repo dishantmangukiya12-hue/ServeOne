@@ -2,28 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useDataRefresh } from '@/hooks/useServerSync';
+import { useMenuItems, useCategories, useCreateMenuItem, useUpdateMenuItem, useDeleteMenuItem, useCreateCategory, useInventory, useRestaurant, useUpdateRestaurant } from '@/hooks/api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2, Settings, Sliders, Package, X } from 'lucide-react';
-import type { Category, MenuItem, ModifierGroup, InventoryItem } from '@/services/dataService';
-import { getRestaurantData, saveRestaurantData, addCategory, addMenuItem, updateMenuItem, deleteMenuItem } from '@/services/dataService';
+import type { Category, MenuItem, ModifierGroup, InventoryItem } from '@/types/restaurant';
 import { ModifierConfigDialog } from '@/components/menu/ModifierConfigDialog';
 
-interface RestaurantSettings {
+interface LocalSettings {
   taxRate: number;
   serviceCharge: number;
 }
 
 export default function Menu() {
   const { restaurant } = useAuth();
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [settings, setSettings] = useState<RestaurantSettings>({ taxRate: 5, serviceCharge: 0 });
   const [selectedCategory, setSelectedCategory] = useState('');
   const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false);
   const [showAddItemDialog, setShowAddItemDialog] = useState(false);
@@ -48,30 +43,38 @@ export default function Menu() {
   const [itemLowStockThreshold, setItemLowStockThreshold] = useState('10');
   const [recipeIngredients, setRecipeIngredients] = useState<{inventoryItemId: string; quantity: number; name?: string}[]>([]);
 
-  useEffect(() => {
-    if (restaurant) {
-      loadData();
-    }
-  }, [restaurant?.id]);
+  const { data: menuItemsData } = useMenuItems(restaurant?.id);
+  const { data: categoriesData } = useCategories(restaurant?.id);
+  const { data: inventoryData } = useInventory(restaurant?.id);
+  const { data: restaurantData } = useRestaurant(restaurant?.id);
+  const createMenuItem = useCreateMenuItem(restaurant?.id);
+  const updateMenuItemMutation = useUpdateMenuItem(restaurant?.id);
+  const deleteMenuItemMutation = useDeleteMenuItem(restaurant?.id);
+  const createCategory = useCreateCategory(restaurant?.id);
+  const updateRestaurant = useUpdateRestaurant(restaurant?.id);
 
-  const loadData = () => {
-    if (!restaurant) return;
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      setCategories(data.categories);
-      setMenuItems(data.menuItems);
-      setInventory(data.inventory || []);
-      if (data.settings) {
-        setSettings(data.settings);
-        setTaxRate(data.settings.taxRate.toString());
-        setServiceCharge(data.settings.serviceCharge.toString());
-      }
-      if (data.categories.length > 0 && !selectedCategory) {
-        setSelectedCategory(data.categories[0].id);
-      }
-    }
+  const categories = categoriesData?.categories || [];
+  const menuItems = menuItemsData?.items || [];
+  const inventory = inventoryData?.items || [];
+  const settings: LocalSettings = {
+    taxRate: restaurantData?.settings?.taxRate ?? 5,
+    serviceCharge: restaurantData?.settings?.serviceCharge ?? 0,
   };
-  useDataRefresh(loadData);
+
+  // Set initial selected category
+  useEffect(() => {
+    if (categories.length > 0 && !selectedCategory) {
+      setSelectedCategory(categories[0].id);
+    }
+  }, [categories, selectedCategory]);
+
+  // Sync tax settings
+  useEffect(() => {
+    if (restaurantData?.settings) {
+      setTaxRate((restaurantData.settings.taxRate ?? 5).toString());
+      setServiceCharge((restaurantData.settings.serviceCharge ?? 0).toString());
+    }
+  }, [restaurantData?.settings]);
 
   const handleSelectAll = () => {
     if (selectAll) {
@@ -93,43 +96,47 @@ export default function Menu() {
   const handleAddCategory = () => {
     if (!categoryName || !restaurant) return;
 
-    const newCategory: Category = {
-      id: `cat_${Date.now()}`,
-      name: categoryName,
-      icon: categoryIcon,
-      sortingOrder: categories.length + 1
-    };
-
-    addCategory(restaurant.id, newCategory);
-    setCategoryName('');
-    setShowAddCategoryDialog(false);
-    loadData();
+    createCategory.mutate(
+      {
+        restaurantId: restaurant.id,
+        name: categoryName,
+        icon: categoryIcon,
+        sortingOrder: categories.length + 1,
+      },
+      {
+        onSuccess: () => {
+          setCategoryName('');
+          setShowAddCategoryDialog(false);
+        },
+      }
+    );
   };
 
   const handleAddItem = () => {
     if (!itemName || !itemPrice || !itemCategory || !restaurant) return;
 
-    const newItem: MenuItem = {
-      id: `item_${Date.now()}`,
-      name: itemName,
-      price: parseFloat(itemPrice) || 0,
-      category: itemCategory,
-      isVeg: itemIsVeg,
-      dineIn: true,
-      takeAway: true,
-      homeDelivery: true,
-      aggregators: true,
-      // Inventory fields
-      stockQuantity: itemStockQuantity ? parseInt(itemStockQuantity) : undefined,
-      lowStockThreshold: itemLowStockThreshold ? parseInt(itemLowStockThreshold) : 10,
-      recipeIngredients: recipeIngredients.length > 0 ? recipeIngredients : undefined,
-      available: true
-    };
-
-    addMenuItem(restaurant.id, newItem);
-    resetItemForm();
-    setShowAddItemDialog(false);
-    loadData();
+    createMenuItem.mutate(
+      {
+        restaurantId: restaurant.id,
+        name: itemName,
+        price: parseFloat(itemPrice) || 0,
+        category: itemCategory,
+        isVeg: itemIsVeg,
+        dineIn: true,
+        takeAway: true,
+        homeDelivery: true,
+        aggregators: true,
+        stockQuantity: itemStockQuantity ? parseInt(itemStockQuantity) : undefined,
+        lowStockThreshold: itemLowStockThreshold ? parseInt(itemLowStockThreshold) : 10,
+        available: true,
+      },
+      {
+        onSuccess: () => {
+          resetItemForm();
+          setShowAddItemDialog(false);
+        },
+      }
+    );
   };
 
   const resetItemForm = () => {
@@ -145,45 +152,46 @@ export default function Menu() {
   const handleUpdateItem = () => {
     if (!editingItem || !restaurant) return;
 
-    updateMenuItem(restaurant.id, editingItem.id, {
-      name: itemName,
-      price: parseFloat(itemPrice) || 0,
-      category: itemCategory,
-      isVeg: itemIsVeg,
-      // Inventory fields
-      stockQuantity: itemStockQuantity ? parseInt(itemStockQuantity) : undefined,
-      lowStockThreshold: itemLowStockThreshold ? parseInt(itemLowStockThreshold) : 10,
-      recipeIngredients: recipeIngredients.length > 0 ? recipeIngredients : undefined,
-    });
-
-    setEditingItem(null);
-    resetItemForm();
-    setShowAddItemDialog(false);
-    loadData();
+    updateMenuItemMutation.mutate(
+      {
+        itemId: editingItem.id,
+        name: itemName,
+        price: parseFloat(itemPrice) || 0,
+        category: itemCategory,
+        isVeg: itemIsVeg,
+        stockQuantity: itemStockQuantity ? parseInt(itemStockQuantity) : undefined,
+        lowStockThreshold: itemLowStockThreshold ? parseInt(itemLowStockThreshold) : 10,
+      },
+      {
+        onSuccess: () => {
+          setEditingItem(null);
+          resetItemForm();
+          setShowAddItemDialog(false);
+        },
+      }
+    );
   };
 
   const handleDeleteItem = (itemId: string) => {
     if (!restaurant) return;
     if (confirm('Are you sure you want to delete this item?')) {
-      deleteMenuItem(restaurant.id, itemId);
-      loadData();
+      deleteMenuItemMutation.mutate(itemId);
     }
   };
 
   const handleSaveSettings = () => {
     if (!restaurant) return;
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      data.settings = {
-        ...data.settings,
-        taxRate: parseFloat(taxRate) || 0,
-        serviceCharge: parseFloat(serviceCharge) || 0
-      };
-      saveRestaurantData(restaurant.id, data);
-      setSettings({ taxRate: data.settings.taxRate, serviceCharge: data.settings.serviceCharge });
-      setShowSettingsDialog(false);
-      // Settings saved silently
-    }
+    updateRestaurant.mutate(
+      {
+        settings: {
+          taxRate: parseFloat(taxRate) || 0,
+          serviceCharge: parseFloat(serviceCharge) || 0,
+        },
+      },
+      {
+        onSuccess: () => setShowSettingsDialog(false),
+      }
+    );
   };
 
   const openEditItem = (item: MenuItem) => {
@@ -214,10 +222,10 @@ export default function Menu() {
 
   const toggleItemChannel = (item: MenuItem, channel: keyof MenuItem) => {
     if (!restaurant) return;
-    updateMenuItem(restaurant.id, item.id, {
-      [channel]: !item[channel]
+    updateMenuItemMutation.mutate({
+      itemId: item.id,
+      [channel]: !item[channel],
     });
-    loadData();
   };
 
   const openModifierConfig = (item: MenuItem) => {
@@ -227,8 +235,7 @@ export default function Menu() {
 
   const handleSaveModifiers = (modifiers: ModifierGroup[]) => {
     if (!restaurant || !modifierItem) return;
-    updateMenuItem(restaurant.id, modifierItem.id, { modifiers });
-    loadData();
+    updateMenuItemMutation.mutate({ itemId: modifierItem.id, modifiers: modifiers as unknown as Record<string, unknown>[] });
   };
 
   // Recipe ingredient handlers

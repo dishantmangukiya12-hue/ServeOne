@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { updateOrderSchema } from "@/lib/validations";
+import { broadcastInvalidation } from "@/lib/sse";
 
 // VULN-18 fix: Define allowed order status transitions
 const VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
@@ -122,6 +123,9 @@ export async function PUT(
       data: updateData,
     });
 
+    broadcastInvalidation(order.restaurantId, "orders");
+    if (status) broadcastInvalidation(order.restaurantId, "tables");
+
     return NextResponse.json({ order: updated });
   } catch (error) {
     return NextResponse.json({ error: "Failed to update order" }, { status: 500 });
@@ -176,6 +180,9 @@ export async function DELETE(
         ],
       },
     });
+
+    broadcastInvalidation(order.restaurantId, "orders");
+    broadcastInvalidation(order.restaurantId, "tables");
 
     return NextResponse.json({ order: updated });
   } catch (error) {
@@ -242,6 +249,9 @@ export async function POST(
       where: { id: order.tableId },
       data: { status: "available", currentOrderId: null },
     });
+
+    broadcastInvalidation(order.restaurantId, "orders");
+    broadcastInvalidation(order.restaurantId, "tables");
 
     return NextResponse.json({ order: updated });
   } catch (error) {

@@ -1,15 +1,14 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useDataRefresh } from '@/hooks/useServerSync';
+import { useOrders, useSettleOrder } from '@/hooks/api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Search, ChevronDown, Download, Eye, Calendar, Printer, MessageSquare, CreditCard } from 'lucide-react';
-import type { Order } from '@/services/dataService';
-import { getOrdersByDateRange, getPendingPayments, settlePendingPayment } from '@/services/dataService';
+import type { Order } from '@/types/restaurant';
 import { toast } from 'sonner';
 
 
@@ -34,7 +33,6 @@ const reportTypes = [
 export default function Reports() {
   const { restaurant } = useAuth();
   const [selectedReport, setSelectedReport] = useState('Order History');
-  const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [dateRange, setDateRange] = useState('Today');
   const [selectedPayment, setSelectedPayment] = useState('All');
@@ -59,25 +57,11 @@ export default function Reports() {
 
   const itemsPerPage = 10;
 
-  useEffect(() => {
-    if (restaurant) {
-      if (selectedReport === 'Pending Payments') {
-        loadPendingPayments();
-      } else {
-        loadOrders();
-      }
-    }
-  }, [restaurant?.id, dateRange, customStartDate, customEndDate, selectedReport]);
-
-  useEffect(() => {
-    filterOrders();
-  }, [orders, selectedPayment, searchQuery]);
-
-  const loadOrders = () => {
-    if (!restaurant) return;
+  // Compute date range for API query
+  const dateFilters = useMemo(() => {
+    const now = new Date();
     let startDate: Date;
     let endDate: Date;
-    const now = new Date();
 
     switch (dateRange) {
       case 'Today':
@@ -118,7 +102,9 @@ export default function Reports() {
           endDate = new Date(customEndDate);
           endDate.setDate(endDate.getDate() + 1);
         } else {
-          return;
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + 1);
         }
         break;
       default:
@@ -127,27 +113,33 @@ export default function Reports() {
         endDate.setDate(endDate.getDate() + 1);
     }
 
-    // Get all orders in date range, then filter for closed OR pending with partial payments
-    const allOrders = getOrdersByDateRange(restaurant.id, startDate, endDate);
-    const relevantOrders = allOrders.filter(o => 
-      o.status === 'closed' || 
+    return { startDate: startDate.toISOString(), endDate: endDate.toISOString() };
+  }, [dateRange, customStartDate, customEndDate]);
+
+  // Fetch orders via React Query
+  const isPending = selectedReport === 'Pending Payments';
+  const { data: ordersData } = useOrders(restaurant?.id, {
+    ...(isPending
+      ? { status: 'pending_payment' }
+      : { startDate: dateFilters.startDate, endDate: dateFilters.endDate, status: 'closed,pending_payment' }),
+    limit: 10000,
+  });
+
+  const settleOrderMutation = useSettleOrder(restaurant?.id);
+
+  // Derive orders from API data
+  const orders = useMemo(() => {
+    const allOrders = ordersData?.orders || [];
+    if (isPending) return allOrders;
+    return allOrders.filter(o =>
+      o.status === 'closed' ||
       (o.status === 'pending_payment' && o.partialPayments && o.partialPayments.length > 0)
     );
-    setOrders(relevantOrders);
-  };
+  }, [ordersData, isPending]);
 
-  const loadPendingPayments = () => {
-    if (!restaurant) return;
-    const pendingOrders = getPendingPayments(restaurant.id);
-    setOrders(pendingOrders);
-  };
-  useDataRefresh(() => {
-    if (selectedReport === 'Pending Payments') {
-      loadPendingPayments();
-    } else {
-      loadOrders();
-    }
-  });
+  useEffect(() => {
+    filterOrders();
+  }, [orders, selectedPayment, searchQuery]);
 
   const filterOrders = () => {
     let filtered = [...orders];
@@ -260,11 +252,17 @@ export default function Reports() {
       toast.error('Please enter a valid amount');
       return;
     }
-    settlePendingPayment(restaurant.id, orderToSettle.id, settlePaymentMethod, amount);
-    setShowSettleDialog(false);
-    setOrderToSettle(null);
-    setSettleAmount('');
-    loadPendingPayments();
+    settleOrderMutation.mutate(
+      { orderId: orderToSettle.id, paymentMethod: settlePaymentMethod, amount },
+      {
+        onSuccess: () => {
+          setShowSettleDialog(false);
+          setOrderToSettle(null);
+          setSettleAmount('');
+          toast.success('Payment settled successfully');
+        },
+      }
+    );
   };
 
   const exportToCSV = () => {
@@ -369,17 +367,6 @@ export default function Reports() {
               onChange={(e) => {
                 setCustomStartDate(e.target.value);
                 setDateRange('Custom');
-                if (e.target.value) {
-                  const start = new Date(e.target.value);
-                  const end = customEndDate ? new Date(customEndDate) : new Date(e.target.value);
-                  end.setDate(end.getDate() + 1);
-                  const allOrders = getOrdersByDateRange(restaurant.id, start, end);
-                  const relevantOrders = allOrders.filter(o =>
-                    o.status === 'closed' ||
-                    (o.status === 'pending_payment' && o.partialPayments && o.partialPayments.length > 0)
-                  );
-                  setOrders(relevantOrders);
-                }
               }}
               className="flex-1 md:w-32 lg:w-40 text-sm border-primary text-primary"
             />
@@ -390,17 +377,6 @@ export default function Reports() {
               onChange={(e) => {
                 setCustomEndDate(e.target.value);
                 setDateRange('Custom');
-                if (e.target.value && customStartDate) {
-                  const start = new Date(customStartDate);
-                  const end = new Date(e.target.value);
-                  end.setDate(end.getDate() + 1);
-                  const allOrders = getOrdersByDateRange(restaurant.id, start, end);
-                  const relevantOrders = allOrders.filter(o =>
-                    o.status === 'closed' ||
-                    (o.status === 'pending_payment' && o.partialPayments && o.partialPayments.length > 0)
-                  );
-                  setOrders(relevantOrders);
-                }
               }}
               className="flex-1 md:w-32 lg:w-40 text-sm border-primary text-primary"
             />
@@ -697,7 +673,6 @@ export default function Reports() {
                   if (customStartDate && customEndDate) {
                     setDateRange('Custom');
                     setShowCustomDateDialog(false);
-                    loadOrders();
                   }
                 }}
                 disabled={!customStartDate || !customEndDate}

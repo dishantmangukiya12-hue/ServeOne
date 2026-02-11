@@ -9,10 +9,10 @@ export async function GET(
 ) {
   const { restaurantId } = await params;
 
-  // Public access allowed for QR ordering, but only expose menu data for unauthenticated users
+  // SEC: Require authentication — public QR ordering uses /api/public/restaurant instead 
   const session = await getServerSession(authOptions);
-  if (session?.user?.restaurantId && session.user.restaurantId !== restaurantId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  if (!session?.user?.restaurantId || session.user.restaurantId !== restaurantId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const store = await prisma.restaurantStore.findUnique({
@@ -21,22 +21,6 @@ export async function GET(
 
   if (!store) {
     return NextResponse.json({ data: null }, { status: 404 });
-  }
-
-  // If unauthenticated (QR ordering), only expose menu data, not sensitive info
-  if (!session?.user?.restaurantId) {
-    const data = store.data as Record<string, unknown> | null;
-    if (data) {
-      return NextResponse.json({
-        data: {
-          restaurant: { id: (data.restaurant as Record<string, unknown>)?.id, name: (data.restaurant as Record<string, unknown>)?.name },
-          categories: data.categories,
-          menuItems: data.menuItems,
-          tables: data.tables,
-          settings: { currency: (data.settings as Record<string, unknown>)?.currency, taxRate: (data.settings as Record<string, unknown>)?.taxRate, tax: (data.settings as Record<string, unknown>)?.tax },
-        },
-      });
-    }
   }
 
   return NextResponse.json({ data: store.data });

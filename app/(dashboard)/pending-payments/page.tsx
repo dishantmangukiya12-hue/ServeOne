@@ -1,15 +1,14 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useDataRefresh } from '@/hooks/useServerSync';
+import { useOrders, useSettleOrder, useCancelOrder } from '@/hooks/api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Search, Eye, CreditCard, Clock, User, Table2, Package, XCircle } from 'lucide-react';
-import type { Order } from '@/services/dataService';
-import { getPendingPayments, settlePendingPayment, cancelOrder } from '@/services/dataService';
+import type { Order } from '@/types/restaurant';
 import { toast } from 'sonner';
 
 // Format time from order createdAt
@@ -33,8 +32,6 @@ const getElapsedTime = (createdAt: string) => {
 
 export default function PendingPayments() {
   const { restaurant } = useAuth();
-  const [pendingOrders, setPendingOrders] = useState<Order[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
@@ -45,38 +42,22 @@ export default function PendingPayments() {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
 
-  useEffect(() => {
-    if (restaurant) {
-      loadPendingPayments();
-    }
-  }, [restaurant?.id]);
+  const { data: ordersData } = useOrders(restaurant?.id, { status: 'pending_payment', limit: 10000 });
+  const settleOrder = useSettleOrder(restaurant?.id);
+  const cancelOrderMutation = useCancelOrder(restaurant?.id);
 
-  useEffect(() => {
-    filterOrders();
+  const pendingOrders = ordersData?.orders || [];
+
+  const filteredOrders = useMemo(() => {
+    if (!searchQuery) return pendingOrders;
+    const query = searchQuery.toLowerCase();
+    return pendingOrders.filter(o =>
+      o.customerName.toLowerCase().includes(query) ||
+      o.customerMobile.includes(query) ||
+      o.id.toLowerCase().includes(query) ||
+      o.orderNumber.toString().includes(query)
+    );
   }, [pendingOrders, searchQuery]);
-
-  const loadPendingPayments = () => {
-    if (!restaurant) return;
-    const orders = getPendingPayments(restaurant.id);
-    setPendingOrders(orders);
-  };
-  useDataRefresh(loadPendingPayments);
-
-  const filterOrders = () => {
-    let filtered = [...pendingOrders];
-
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(o =>
-        o.customerName.toLowerCase().includes(query) ||
-        o.customerMobile.includes(query) ||
-        o.id.toLowerCase().includes(query) ||
-        o.orderNumber.toString().includes(query)
-      );
-    }
-
-    setFilteredOrders(filtered);
-  };
 
   const viewOrderDetails = (order: Order) => {
     setSelectedOrder(order);
@@ -99,19 +80,26 @@ export default function PendingPayments() {
       toast.error('Please enter a valid amount');
       return;
     }
-    settlePendingPayment(restaurant.id, selectedOrder.id, settlePaymentMethod, amount);
-    setShowSettleDialog(false);
-    setSettleAmount('');
-    loadPendingPayments();
+    settleOrder.mutate(
+      { orderId: selectedOrder.id, paymentMethod: settlePaymentMethod, amount },
+      {
+        onSuccess: () => {
+          setShowSettleDialog(false);
+          setSettleAmount('');
+        },
+      }
+    );
   };
 
   const handleCancelOrder = () => {
     if (!selectedOrder || !restaurant) return;
-    cancelOrder(restaurant.id, selectedOrder.id, cancelReason || 'Cancelled by user');
-    setShowCancelDialog(false);
-    setShowOrderDetails(false);
-    setCancelReason('');
-    loadPendingPayments();
+    cancelOrderMutation.mutate(selectedOrder.id, {
+      onSuccess: () => {
+        setShowCancelDialog(false);
+        setShowOrderDetails(false);
+        setCancelReason('');
+      },
+    });
   };
 
   // Calculate totals

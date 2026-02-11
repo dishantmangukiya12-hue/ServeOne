@@ -12,5 +12,3 @@ export { useOrdersData } from './useOrdersData';
 
 export { useKeyboardShortcuts, getKeyboardShortcutsHelp } from './useKeyboardShortcuts';
 
-export { useDataRefresh } from './useServerSync';
-

@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { User, Phone, Calendar, Star, TrendingUp } from 'lucide-react';
-import type { Customer, Order } from '@/services/dataService';
-import { getRestaurantData } from '@/services/dataService';
+import type { Customer, Order } from '@/types/restaurant';
+import { api } from '@/lib/api-client';
 
 interface CustomerLookupProps {
   restaurantId: string;
@@ -25,30 +25,40 @@ export function CustomerLookup({
       return;
     }
 
-    const data = getRestaurantData(restaurantId);
-    if (!data) return;
+    const searchCustomers = async () => {
+      try {
+        const data = await api.get<{ customers: Customer[] }>(
+          `/api/customers?restaurantId=${restaurantId}&search=${encodeURIComponent(searchQuery)}&limit=5`
+        );
+        const matches = data.customers || [];
+        setMatchingCustomers(matches);
 
-    const query = searchQuery.toLowerCase();
-    const matches = data.customers.filter(c =>
-      c.name.toLowerCase().includes(query) ||
-      c.mobile.includes(query)
-    ).slice(0, 5);
+        // Get recent orders for matching customers
+        const ordersMap: Record<string, Order[]> = {};
+        if (matches.length > 0) {
+          const ordersData = await api.get<{ orders: Order[] }>(
+            `/api/orders?restaurantId=${restaurantId}&limit=50`
+          );
+          const allOrders = ordersData.orders || [];
 
-    setMatchingCustomers(matches);
+          matches.forEach(customer => {
+            const orders = allOrders
+              .filter(o =>
+                o.customerMobile === customer.mobile ||
+                (o.customerName && o.customerName.toLowerCase() === customer.name.toLowerCase())
+              )
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+              .slice(0, 3);
+            ordersMap[customer.id] = orders;
+          });
+        }
+        setCustomerOrders(ordersMap);
+      } catch {
+        setMatchingCustomers([]);
+      }
+    };
 
-    // Get recent orders for each matching customer
-    const ordersMap: Record<string, Order[]> = {};
-    matches.forEach(customer => {
-      const orders = data.orders
-        .filter(o =>
-          o.customerMobile === customer.mobile ||
-          o.customerName.toLowerCase() === customer.name.toLowerCase()
-        )
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, 3);
-      ordersMap[customer.id] = orders;
-    });
-    setCustomerOrders(ordersMap);
+    void searchCustomers();
   }, [restaurantId, searchQuery]);
 
   if (matchingCustomers.length === 0) return null;

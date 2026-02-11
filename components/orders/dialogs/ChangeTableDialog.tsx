@@ -2,7 +2,7 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import type { Table } from '@/services/dataService';
+import type { Table } from '@/types/restaurant';
 
 interface ChangeTableDialogProps {
   open: boolean;

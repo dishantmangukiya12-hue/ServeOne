@@ -3,7 +3,7 @@
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Search, Plus, ArrowLeft, AlertTriangle } from 'lucide-react';
-import type { MenuItem } from '@/services/dataService';
+import type { MenuItem } from '@/types/restaurant';
 
 interface Category {
   id: string;

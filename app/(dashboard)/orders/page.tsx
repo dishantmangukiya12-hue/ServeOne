@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import type { MenuItem, Order, Table, OrderChannel, User as StaffUser } from '@/services/dataService';
-import { getRestaurantData, createOrder, closeOrder, cancelOrder, updateOrder, saveRestaurantData, getNextOrderNumber } from '@/services/dataService';
+import type { MenuItem, Order, Table, OrderChannel, User as StaffUser, RestaurantSettings } from '@/types/restaurant';
+import { useOrders, useMenuItems, useCategories, useTables, useUsers, useRestaurant, useCreateOrder, useUpdateOrder, useCancelOrder } from '@/hooks/api';
+import { useQROrders, useUpdateQROrder } from '@/hooks/api/useQROrders';
 import { toast } from 'sonner';
-import { getPendingQROrderCount } from '@/components/QROrderManager';
 import { useAuth } from '@/contexts/AuthContext';
-import { markOrderAsPendingPayment } from '@/services/dataService';
+import { api } from '@/lib/api-client';
 
 // Extracted components
 import {
@@ -53,13 +53,36 @@ interface CartItem {
 export default function Orders() {
   const { restaurant } = useAuth();
   const [activeTab, setActiveTab] = useState('DINE IN');
-  const [tables, setTables] = useState<Table[]>([]);
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [categories, setCategories] = useState<{ id: string; name: string; icon: string }[]>([]);
-  const [settings, setSettings] = useState<{ taxRate: number; serviceCharge: number; enableInventory?: boolean; tax?: { cgst: number; sgst: number; serviceCharge: number }; receipt?: { header: string; footer: string; gstNumber: string; showGstNumber: boolean } }>({ taxRate: 5, serviceCharge: 0 });
-  const [staffList, setStaffList] = useState<StaffUser[]>([]);
   const [selectedWaiter, setSelectedWaiter] = useState('Admin');
-  const [pendingQRCount, setPendingQRCount] = useState(0);
+
+  // React Query hooks for data
+  const { data: tablesData } = useTables(restaurant?.id);
+  const { data: menuData } = useMenuItems(restaurant?.id);
+  const { data: categoriesData } = useCategories(restaurant?.id);
+  const { data: restaurantData } = useRestaurant(restaurant?.id);
+  const { data: usersData } = useUsers(restaurant?.id);
+  const { data: ordersData } = useOrders(restaurant?.id, { limit: 10000 });
+  const { data: qrOrdersData } = useQROrders(restaurant?.id);
+
+  // Mutations
+  const createOrderMutation = useCreateOrder(restaurant?.id);
+  const updateOrderMutation = useUpdateOrder(restaurant?.id);
+  const cancelOrderMutation = useCancelOrder(restaurant?.id);
+  const updateQROrderMutation = useUpdateQROrder(restaurant?.id);
+
+  // Derive data from hooks
+  const tables = useMemo(() => tablesData?.tables?.filter((t: Table) => !t.mergedWith) || [], [tablesData]);
+  const menuItems = useMemo(() => menuData?.items || [], [menuData]);
+  const categories = useMemo(() => categoriesData?.categories || [], [categoriesData]);
+  const settings = useMemo<RestaurantSettings>(() => restaurantData?.settings || { taxRate: 5, serviceCharge: 0, currency: '₹', enableLoyalty: false, loyaltyPointsPerRupee: 0, enableInventory: false }, [restaurantData]);
+  const staffList = useMemo(() => usersData?.users || [], [usersData]);
+  const allOrders = useMemo(() => ordersData?.orders || [], [ordersData]);
+
+  // Derive QR order data from hook
+  const pendingQROrders = useMemo(() => 
+    (qrOrdersData?.orders || []).filter(o => o.status === 'pending_approval') as QROrder[],
+  [qrOrdersData]);
+  const pendingQRCount = pendingQROrders.length;
 
   // Selection state
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
@@ -102,7 +125,6 @@ export default function Orders() {
   const [sendBillPhone, setSendBillPhone] = useState('');
 
   // QR Orders state
-  const [pendingQROrders, setPendingQROrders] = useState<QROrder[]>([]);
   const [selectedQROrder, setSelectedQROrder] = useState<QROrder | null>(null);
 
   // Dialog visibility states
@@ -136,39 +158,12 @@ export default function Orders() {
     }
   }, [cart]);
 
-  // Check for pending QR orders
+  // Set initial category when categories load
   useEffect(() => {
-    if (!restaurant) return;
-    const checkPending = () => setPendingQRCount(getPendingQROrderCount(restaurant.id));
-    checkPending();
-    const interval = setInterval(checkPending, 3000);
-    const handleStorage = () => checkPending();
-    window.addEventListener('storage', handleStorage);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('storage', handleStorage);
-    };
-  }, [restaurant?.id]);
-
-  useEffect(() => {
-    if (!restaurant) return;
-    loadData();
-  }, [restaurant?.id]);
-
-  const loadData = () => {
-    if (!restaurant) return;
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      setTables(data.tables);
-      setMenuItems(data.menuItems);
-      setCategories(data.categories);
-      if (data.settings) setSettings(data.settings);
-      if (data.users) setStaffList(data.users);
-      if (data.categories.length > 0 && !selectedCategory) {
-        setSelectedCategory(data.categories[0].id);
-      }
+    if (categories.length > 0 && !selectedCategory) {
+      setSelectedCategory(categories[0].id);
     }
-  };
+  }, [categories, selectedCategory]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -227,9 +222,7 @@ export default function Orders() {
 
   const getTableOrderDetails = (table: Table): Order | null => {
     if (!table.currentOrderId || !restaurant) return null;
-    const data = getRestaurantData(restaurant.id);
-    if (!data) return null;
-    return data.orders.find(o => o.id === table.currentOrderId) || null;
+    return allOrders.find(o => o.id === table.currentOrderId) || null;
   };
 
   // Cart calculations
@@ -329,9 +322,8 @@ export default function Orders() {
       setOrderChannel('dineIn');
       setSelectedWaiter('Admin');
     } else if (restaurant) {
-      const data = getRestaurantData(restaurant.id);
-      if (data && table.currentOrderId) {
-        const order = data.orders.find(o => o.id === table.currentOrderId);
+      if (table.currentOrderId) {
+        const order = allOrders.find(o => o.id === table.currentOrderId);
         if (order) {
           setCurrentOrder(order);
           setSelectedTable(table);
@@ -357,9 +349,8 @@ export default function Orders() {
   const handleMenuClick = (e: React.MouseEvent, table: Table) => {
     e.stopPropagation();
     if (!restaurant) return;
-    const data = getRestaurantData(restaurant.id);
-    if (data && table.currentOrderId) {
-      const order = data.orders.find(o => o.id === table.currentOrderId);
+    if (table.currentOrderId) {
+      const order = allOrders.find(o => o.id === table.currentOrderId);
       if (order) {
         setSelectedTable(table);
         setCurrentOrder(order);
@@ -389,54 +380,52 @@ export default function Orders() {
 
   const handleChangeTable = (newTableId: string) => {
     if (!currentOrder || !selectedTable || !restaurant) return;
-    const data = getRestaurantData(restaurant.id);
-    if (!data) return;
-    const newTable = data.tables.find(t => t.id === newTableId);
-    const oldTable = data.tables.find(t => t.id === selectedTable.id);
-    if (!newTable || !oldTable) return;
-    const orderIndex = data.orders.findIndex(o => o.id === currentOrder.id);
-    if (orderIndex !== -1) data.orders[orderIndex].tableId = newTableId;
-    oldTable.status = 'available';
-    oldTable.currentOrderId = undefined;
-    newTable.status = 'occupied';
-    newTable.currentOrderId = currentOrder.id;
-    saveRestaurantData(restaurant.id, data);
-    setTables([...data.tables]);
-    setSelectedTable(newTable);
-    setCurrentOrder({ ...currentOrder, tableId: newTableId });
-    setShowChangeTableDialog(false);
-    setShowTableMenu(null);
-    toast.success(`Order moved to Table ${newTable.tableNumber}`, {
-      style: { background: '#1e3a5f', color: '#fff', border: '1px solid #2563eb' }
-    });
+    const newTable = tables.find((t: Table) => t.id === newTableId);
+    if (!newTable) return;
+    // Update order's tableId via API - server handles table status
+    updateOrderMutation.mutate(
+      { orderId: currentOrder.id, tableId: newTableId } as any,
+      {
+        onSuccess: () => {
+          setSelectedTable(newTable);
+          setCurrentOrder({ ...currentOrder, tableId: newTableId });
+          setShowChangeTableDialog(false);
+          setShowTableMenu(null);
+          toast.success(`Order moved to Table ${newTable.tableNumber}`, {
+            style: { background: '#1e3a5f', color: '#fff', border: '1px solid #2563eb' }
+          });
+        },
+      }
+    );
   };
 
   // Order handlers
   const confirmOrder = () => {
     if (!selectedTable || cart.length === 0 || !restaurant) return;
     if (currentOrder) {
-      updateOrder(restaurant.id, currentOrder.id, {
-        items: cart.map(c => {
-          const existingItem = currentOrder.items.find(i => i.menuItemId === c.menuItemId);
-          return {
-            id: existingItem?.id || `item_${Date.now()}_${c.menuItemId}`,
-            menuItemId: c.menuItemId,
-            name: c.name,
-            price: c.price,
-            quantity: c.quantity,
-            specialRequest: c.specialRequest,
-            addedAt: existingItem?.addedAt || c.addedAt || new Date().toISOString()
-          };
-        }),
-        subTotal: cartTotal,
-        tax,
-        total,
-        channel: orderChannel
-      });
-      toast.success('Order updated');
+      updateOrderMutation.mutate(
+        {
+          orderId: currentOrder.id,
+          items: cart.map(c => {
+            const existingItem = currentOrder.items.find(i => i.menuItemId === c.menuItemId);
+            return {
+              id: existingItem?.id || `item_${Date.now()}_${c.menuItemId}`,
+              menuItemId: c.menuItemId,
+              name: c.name,
+              price: c.price,
+              quantity: c.quantity,
+              specialRequest: c.specialRequest,
+              addedAt: existingItem?.addedAt || c.addedAt || new Date().toISOString()
+            };
+          }) as unknown as Record<string, unknown>[],
+          subTotal: cartTotal,
+          tax,
+          total,
+        },
+        { onSuccess: () => toast.success('Order updated') }
+      );
     } else {
-      const order: Order = {
-        id: `order_${Date.now()}`,
+      createOrderMutation.mutate({
         restaurantId: restaurant.id,
         tableId: selectedTable.id,
         customerName: customerName || 'Guest',
@@ -444,30 +433,20 @@ export default function Orders() {
         adults,
         kids,
         items: cart.map(c => ({
-          id: `item_${Date.now()}_${c.menuItemId}`,
           menuItemId: c.menuItemId,
           name: c.name,
           price: c.price,
           quantity: c.quantity,
           specialRequest: c.specialRequest,
-          addedAt: c.addedAt || new Date().toISOString()
-        })),
-        status: 'active',
-        paymentMethod: '',
+        })) as unknown as Record<string, unknown>[],
+        channel: orderChannel,
         subTotal: cartTotal,
         tax,
-        discount: 0,
         total,
-        createdAt: new Date().toISOString(),
         waiterName: selectedWaiter || 'Admin',
-        channel: orderChannel,
-        orderNumber: 0,
-        auditLog: []
-      };
-      createOrder(restaurant.id, order);
+      });
     }
     resetOrderState();
-    loadData();
   };
 
   const handleCloseOrder = () => {
@@ -475,48 +454,58 @@ export default function Orders() {
     
     // Handle Pay Later case
     if (paymentTab === 'PAY_LATER') {
-      // First update order with customer info
-      updateOrder(restaurant.id, currentOrder.id, {
-        customerName: customerName || currentOrder.customerName,
-        customerMobile: customerMobile || currentOrder.customerMobile,
-      });
-      markOrderAsPendingPayment(
-        restaurant.id, 
-        currentOrder.id,
-        customerName || currentOrder.customerName,
-        customerMobile || currentOrder.customerMobile
+      updateOrderMutation.mutate(
+        {
+          orderId: currentOrder.id,
+          customerName: customerName || currentOrder.customerName,
+          customerMobile: customerMobile || currentOrder.customerMobile,
+          status: 'pending_payment',
+        },
+        {
+          onSuccess: () => {
+            setShowCloseDialog(false);
+            resetOrderState();
+          },
+        }
       );
-      setShowCloseDialog(false);
-      resetOrderState();
-      loadData();
       return;
     }
     
     // Regular close order flow
-    updateOrder(restaurant.id, currentOrder.id, {
-      customerName: customerName || currentOrder.customerName,
-      customerMobile: customerMobile || currentOrder.customerMobile,
-    });
-    closeOrder(restaurant.id, currentOrder.id, paymentMethod);
-    setShowCloseDialog(false);
-    setShowCloseSummary(true);
+    updateOrderMutation.mutate(
+      {
+        orderId: currentOrder.id,
+        customerName: customerName || currentOrder.customerName,
+        customerMobile: customerMobile || currentOrder.customerMobile,
+        status: 'closed',
+        paymentMethod,
+        closedAt: new Date().toISOString(),
+      },
+      {
+        onSuccess: () => {
+          setShowCloseDialog(false);
+          setShowCloseSummary(true);
+        },
+      }
+    );
   };
 
   const handleCancelOrder = () => {
     if (!currentOrder || !restaurant) return;
-    cancelOrder(restaurant.id, currentOrder.id, cancelReason);
-    setShowCancelDialog(false);
-    setShowTableMenu(null);
-    resetOrderState();
-    setCancelReason('');
-    loadData();
+    cancelOrderMutation.mutate(currentOrder.id, {
+      onSuccess: () => {
+        setShowCancelDialog(false);
+        setShowTableMenu(null);
+        resetOrderState();
+        setCancelReason('');
+      },
+    });
   };
 
   const handleCloseSummaryDone = () => {
     setShowCloseSummary(false);
     setShowTableMenu(null);
     resetOrderState();
-    loadData();
   };
 
   const resetOrderState = () => {
@@ -530,9 +519,9 @@ export default function Orders() {
   const handleClearOrCancel = () => {
     if (currentOrder && currentOrder.items.length > 0 && restaurant) {
       if (!window.confirm('Are you sure you want to cancel this order? This cannot be undone.')) return;
-      cancelOrder(restaurant.id, currentOrder.id, 'Order cancelled by user');
-      resetOrderState();
-      loadData();
+      cancelOrderMutation.mutate(currentOrder.id, {
+        onSuccess: () => resetOrderState(),
+      });
     } else {
       setCart([]);
     }
@@ -556,7 +545,6 @@ export default function Orders() {
 
   const handlePaySplit = (_splitIndex: number, method: string, amount: number) => {
     if (!currentOrder || !restaurant) return;
-    // Record the split payment in audit log
     const auditLog = currentOrder.auditLog || [];
     auditLog.push({
       id: `audit_${Date.now()}`,
@@ -565,54 +553,51 @@ export default function Orders() {
       performedAt: new Date().toISOString(),
       details: `Split payment ₹${amount} received via ${method}`
     });
-    updateOrder(restaurant.id, currentOrder.id, { auditLog });
-    toast.success(`Split payment ₹${amount} received via ${method}`);
+    updateOrderMutation.mutate(
+      { orderId: currentOrder.id, auditLog: auditLog as unknown as Record<string, unknown>[] },
+      { onSuccess: () => toast.success(`Split payment ₹${amount} received via ${method}`) }
+    );
   };
 
   const handleMultiPayment = (payments: { id: string; method: string; amount: number }[]) => {
     if (!currentOrder || !restaurant) return;
-    updateOrder(restaurant.id, currentOrder.id, {
-      customerName: customerName || currentOrder.customerName,
-      customerMobile: customerMobile || currentOrder.customerMobile,
-    });
     const paymentSummary = payments.map(p => `${p.method}: ₹${p.amount}`).join(', ');
-    closeOrder(restaurant.id, currentOrder.id, paymentSummary);
-    setShowMultiPaymentDialog(false);
-    setShowCloseDialog(false);
-    setShowCloseSummary(true);
-    setPaymentMethod(paymentSummary);
+    updateOrderMutation.mutate(
+      {
+        orderId: currentOrder.id,
+        customerName: customerName || currentOrder.customerName,
+        customerMobile: customerMobile || currentOrder.customerMobile,
+        status: 'closed',
+        paymentMethod: paymentSummary,
+        closedAt: new Date().toISOString(),
+      },
+      {
+        onSuccess: () => {
+          setShowMultiPaymentDialog(false);
+          setShowCloseDialog(false);
+          setShowCloseSummary(true);
+          setPaymentMethod(paymentSummary);
+        },
+      }
+    );
   };
 
   // QR Order handlers
-  const loadPendingQROrders = () => {
-    if (!restaurant) return;
-    const orders = JSON.parse(localStorage.getItem('pending_qr_orders') || '[]');
-    const restaurantOrders = orders.filter(
-      (o: QROrder) => o.restaurantId === restaurant.id && o.status === 'pending_approval'
-    );
-    setPendingQROrders(restaurantOrders);
-  };
-
   const handleOpenQROrders = () => {
-    loadPendingQROrders();
     setShowQROrdersDialog(true);
   };
 
   const handleAcceptQROrder = (order: QROrder) => {
     if (!restaurant) return;
-    const data = getRestaurantData(restaurant.id);
-    if (!data) {
-      toast.error('Restaurant data not found');
-      return;
-    }
-    let table = data.tables.find((t: Table) => t.id === order.tableId);
-    if (!table) table = data.tables.find((t: Table) => t.tableNumber === order.tableNumber);
+
+    let table = tables.find((t: Table) => t.id === order.tableId);
+    if (!table) table = tables.find((t: Table) => t.tableNumber === order.tableNumber);
     if (!table) {
       toast.error(`Table ${order.tableNumber} not found`);
       return;
     }
     if (table.status === 'occupied' && table.currentOrderId) {
-      const existingOrder = data.orders.find((o: Order) => o.id === table!.currentOrderId);
+      const existingOrder = allOrders.find((o: Order) => o.id === table!.currentOrderId);
       if (existingOrder) {
         const newItems = order.items.map(item => ({
           id: `item_${Date.now()}_${item.menuItemId}`,
@@ -625,128 +610,95 @@ export default function Orders() {
         }));
         const updatedItems = [...existingOrder.items, ...newItems];
         const newSubTotal = updatedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        const cgst = data.settings?.tax?.cgst || 0;
-        const sgst = data.settings?.tax?.sgst || 0;
+        const cgst = settings?.tax?.cgst || 0;
+        const sgst = settings?.tax?.sgst || 0;
         const hasSplitGST = cgst > 0 || sgst > 0;
         const newTax = hasSplitGST
           ? Math.round(newSubTotal * (cgst / 100)) + Math.round(newSubTotal * (sgst / 100))
-          : Math.round(newSubTotal * (data.settings?.taxRate ?? 5) / 100);
-        const svcRate = data.settings?.tax?.serviceCharge ?? data.settings?.serviceCharge ?? 0;
+          : Math.round(newSubTotal * (settings?.taxRate ?? 5) / 100);
+        const svcRate = settings?.tax?.serviceCharge ?? settings?.serviceCharge ?? 0;
         const newServiceCharge = Math.round(newSubTotal * (svcRate / 100));
         const newTotal = newSubTotal + newTax + newServiceCharge;
-        updateOrder(restaurant.id, existingOrder.id, {
-          items: updatedItems,
-          subTotal: newSubTotal,
-          tax: newTax,
-          total: newTotal
-        });
-        updateQROrderStatus(order.id, 'approved');
-        setPendingQROrders(prev => prev.filter(o => o.id !== order.id));
-        setShowQRDetailDialog(false);
-        loadData();
-        toast.success(`Items added to Table ${order.tableNumber}`, {
-          style: { background: '#14532d', color: '#fff', border: '1px solid #166534' }
-        });
+        updateOrderMutation.mutate(
+          {
+            orderId: existingOrder.id,
+            items: updatedItems as unknown as Record<string, unknown>[],
+            subTotal: newSubTotal,
+            tax: newTax,
+            total: newTotal,
+          },
+          {
+            onSuccess: () => {
+              updateQROrderMutation.mutate({ qrOrderId: order.id, status: 'approved' });
+              setShowQRDetailDialog(false);
+              toast.success(`Items added to Table ${order.tableNumber}`, {
+                style: { background: '#14532d', color: '#fff', border: '1px solid #166534' }
+              });
+            },
+          }
+        );
         return;
       }
     }
-    const nextOrderNumber = getNextOrderNumber(restaurant.id);
-    const newOrder: Order = {
-      id: order.id,
-      restaurantId: restaurant.id,
-      tableId: table.id,
-      customerName: order.customerName,
-      customerMobile: order.customerMobile,
-      adults: 1,
-      kids: 0,
-      items: order.items.map(item => ({
-        id: `item_${Date.now()}_${item.menuItemId}`,
-        menuItemId: item.menuItemId,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        specialRequest: item.specialRequest,
-        addedAt: new Date().toISOString()
-      })),
-      status: 'active',
-      paymentMethod: '',
-      subTotal: (() => {
-        return order.items.reduce((sum: number, item: { price: number; quantity: number }) => sum + (item.price * item.quantity), 0);
-      })(),
-      tax: (() => {
-        const sub = order.items.reduce((sum: number, item: { price: number; quantity: number }) => sum + (item.price * item.quantity), 0);
-        const c = data.settings?.tax?.cgst || 0;
-        const s = data.settings?.tax?.sgst || 0;
-        const split = c > 0 || s > 0;
-        return split ? Math.round(sub * (c / 100)) + Math.round(sub * (s / 100)) : Math.round(sub * (data.settings?.taxRate ?? 5) / 100);
-      })(),
-      discount: 0,
-      total: (() => {
-        const sub = order.items.reduce((sum: number, item: { price: number; quantity: number }) => sum + (item.price * item.quantity), 0);
-        const c = data.settings?.tax?.cgst || 0;
-        const s = data.settings?.tax?.sgst || 0;
-        const split = c > 0 || s > 0;
-        const t = split ? Math.round(sub * (c / 100)) + Math.round(sub * (s / 100)) : Math.round(sub * (data.settings?.taxRate ?? 5) / 100);
-        const sv = data.settings?.tax?.serviceCharge ?? data.settings?.serviceCharge ?? 0;
-        const sc = Math.round(sub * (sv / 100));
-        return sub + t + sc;
-      })(),
-      createdAt: new Date().toISOString(),
-      closedAt: undefined,
-      waiterName: 'QR Order',
-      channel: 'other',
-      orderNumber: nextOrderNumber,
-      auditLog: [{
-        id: `audit_${Date.now()}`,
-        action: 'QR_ORDER_ACCEPTED',
-        performedBy: 'Manager',
-        performedAt: new Date().toISOString(),
-        details: `Order accepted from Table ${order.tableNumber}`
-      }]
-    };
-    data.orders.push(newOrder);
-    table.status = 'occupied';
-    table.currentOrderId = order.id;
-    saveRestaurantData(restaurant.id, data);
-    updateQROrderStatus(order.id, 'approved');
-    setPendingQROrders(prev => prev.filter(o => o.id !== order.id));
-    setShowQRDetailDialog(false);
-    loadData();
-    toast.success(`Order #${nextOrderNumber} accepted for Table ${order.tableNumber}`, {
-      style: { background: '#14532d', color: '#fff', border: '1px solid #166534' }
-    });
+    // Create new order from QR order
+    createOrderMutation.mutate(
+      {
+        restaurantId: restaurant.id,
+        tableId: table.id,
+        customerName: order.customerName,
+        customerMobile: order.customerMobile,
+        adults: 1,
+        kids: 0,
+        items: order.items.map(item => ({
+          menuItemId: item.menuItemId,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          specialRequest: item.specialRequest,
+        })) as unknown as Record<string, unknown>[],
+        channel: 'other',
+        waiterName: 'QR Order',
+      },
+      {
+        onSuccess: () => {
+          updateQROrderMutation.mutate({ qrOrderId: order.id, status: 'approved' });
+          setShowQRDetailDialog(false);
+          toast.success(`QR order accepted for Table ${order.tableNumber}`, {
+            style: { background: '#14532d', color: '#fff', border: '1px solid #166534' }
+          });
+        },
+      }
+    );
   };
 
   const handleRejectQROrder = (order: QROrder) => {
-    updateQROrderStatus(order.id, 'rejected');
-    setPendingQROrders(prev => prev.filter(o => o.id !== order.id));
+    updateQROrderMutation.mutate({ qrOrderId: order.id, status: 'rejected' });
     setShowQRDetailDialog(false);
     toast.error(`Order rejected for Table ${order.tableNumber}`, {
       style: { background: '#7c2d12', color: '#fff', border: '1px solid #9a3412' }
     });
   };
 
-  const updateQROrderStatus = (orderId: string, status: 'approved' | 'rejected') => {
-    const pending = JSON.parse(localStorage.getItem('pending_qr_orders') || '[]');
-    const updated = pending.map((o: QROrder) =>
-      o.id === orderId ? { ...o, status } : o
-    );
-    localStorage.setItem('pending_qr_orders', JSON.stringify(updated));
-  };
-
   // Customer info save
   const handleSaveCustomerInfo = () => {
     if (!restaurant || !currentOrder) return;
-    updateOrder(restaurant.id, currentOrder.id, {
-      customerName: customerName || currentOrder.customerName,
-      customerMobile: customerMobile || currentOrder.customerMobile,
-    });
-    setCurrentOrder({
-      ...currentOrder,
-      customerName: customerName || currentOrder.customerName,
-      customerMobile: customerMobile || currentOrder.customerMobile,
-    });
-    setShowCustomerInfoDialog(false);
+    updateOrderMutation.mutate(
+      {
+        orderId: currentOrder.id,
+        customerName: customerName || currentOrder.customerName,
+        customerMobile: customerMobile || currentOrder.customerMobile,
+      },
+      {
+        onSuccess: () => {
+          setCurrentOrder({
+            ...currentOrder,
+            customerName: customerName || currentOrder.customerName,
+            customerMobile: customerMobile || currentOrder.customerMobile,
+          });
+          setShowCustomerInfoDialog(false);
+        },
+      }
+    );
   };
 
   if (!restaurant) return null;

@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import { checkPlanLimit } from "@/lib/plan-check";
+import { broadcastInvalidation } from "@/lib/sse";
 
 // GET /api/users?restaurantId=xxx - List staff users
 export async function GET(request: Request) {
@@ -33,6 +34,18 @@ export async function GET(request: Request) {
         orderBy: { name: "asc" },
         skip,
         take: limit,
+        select: {
+          id: true,
+          restaurantId: true,
+          name: true,
+          email: true,
+          mobile: true,
+          role: true,
+          status: true,
+          lastLogin: true,
+          deletedAt: true,
+          // SEC: Never expose passcode hash to client
+        },
       }),
       prisma.user.count({ where }),
     ]);
@@ -101,5 +114,9 @@ export async function POST(request: Request) {
     },
   });
 
-  return NextResponse.json({ user }, { status: 201 });
+  broadcastInvalidation(restaurantId, "users");
+
+  // SEC: Strip passcode from response
+  const { passcode: _, ...safeUser } = user;
+  return NextResponse.json({ user: safeUser }, { status: 201 });
 }

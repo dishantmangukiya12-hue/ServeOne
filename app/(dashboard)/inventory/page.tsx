@@ -1,22 +1,19 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Package, Plus, Pencil, Trash2, AlertTriangle, TrendingDown, History } from 'lucide-react';
-import type { InventoryItem } from '@/services/dataService';
-import { getRestaurantData, saveRestaurantData, addInventoryItem, updateInventoryItem, deleteInventoryItem } from '@/services/dataService';
+import type { InventoryItem } from '@/types/restaurant';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { useDataRefresh } from '@/hooks/useServerSync';
+import { useInventory, useCreateInventoryItem, useUpdateInventoryItem, useDeleteInventoryItem, useRestaurant, useUpdateRestaurant } from '@/hooks/api';
 
 export default function Inventory() {
   const { restaurant } = useAuth();
-  const [items, setItems] = useState<InventoryItem[]>([]);
-  const [settings, setSettings] = useState({ enableInventory: false });
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
@@ -31,32 +28,23 @@ export default function Inventory() {
   const [costPerUnit, setCostPerUnit] = useState('');
   const [supplier, setSupplier] = useState('');
 
-  useEffect(() => {
-    if (restaurant) loadData();
-  }, [restaurant?.id]);
+  const { data: inventoryData } = useInventory(restaurant?.id);
+  const { data: restaurantData } = useRestaurant(restaurant?.id);
+  const createItem = useCreateInventoryItem(restaurant?.id);
+  const updateItem = useUpdateInventoryItem(restaurant?.id);
+  const deleteItem = useDeleteInventoryItem(restaurant?.id);
+  const updateRestaurant = useUpdateRestaurant(restaurant?.id);
 
-  const loadData = () => {
-    if (!restaurant) return;
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      setItems(data.inventory);
-      setSettings({
-        enableInventory: data.settings.enableInventory
-      });
-    }
-  };
-  useDataRefresh(loadData);
+  const items = inventoryData?.items || [];
+  const settings = { enableInventory: restaurantData?.settings?.enableInventory ?? false };
 
   if (!restaurant) return null;
 
   const handleToggleInventory = (enabled: boolean) => {
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      data.settings.enableInventory = enabled;
-      saveRestaurantData(restaurant.id, data);
-      setSettings({ enableInventory: enabled });
-      toast.success(enabled ? 'Inventory tracking enabled' : 'Inventory tracking disabled');
-    }
+    updateRestaurant.mutate(
+      { settings: { enableInventory: enabled } },
+      { onSuccess: () => toast.success(enabled ? 'Inventory tracking enabled' : 'Inventory tracking disabled') }
+    );
   };
 
   const handleAddItem = () => {
@@ -65,60 +53,69 @@ export default function Inventory() {
       return;
     }
 
-    const newItem: InventoryItem = {
-      id: `inv_${Date.now()}`,
-      restaurantId: restaurant.id,
-      name,
-      unit,
-      quantity: parseFloat(quantity) || 0,
-      minThreshold: parseFloat(minThreshold) || 10,
-      costPerUnit: parseFloat(costPerUnit) || 0,
-      supplier: supplier || undefined,
-      lastRestocked: new Date().toISOString()
-    };
-
-    addInventoryItem(restaurant.id, newItem);
-    resetForm();
-    setShowAddDialog(false);
-    loadData();
+    createItem.mutate(
+      {
+        restaurantId: restaurant.id,
+        name,
+        unit,
+        quantity: parseFloat(quantity) || 0,
+        minThreshold: parseFloat(minThreshold) || 10,
+        costPerUnit: parseFloat(costPerUnit) || 0,
+        supplier: supplier || undefined,
+      },
+      {
+        onSuccess: () => {
+          resetForm();
+          setShowAddDialog(false);
+        },
+      }
+    );
   };
 
   const handleUpdateItem = () => {
     if (!editingItem) return;
 
-    updateInventoryItem(restaurant.id, editingItem.id, {
-      name,
-      unit,
-      quantity: parseFloat(quantity) || 0,
-      minThreshold: parseFloat(minThreshold) || 10,
-      costPerUnit: parseFloat(costPerUnit) || 0,
-      supplier: supplier || undefined,
-      lastRestocked: new Date().toISOString()
-    });
-
-    setEditingItem(null);
-    setShowEditDialog(false);
-    resetForm();
-    loadData();
-    toast.success('Inventory updated');
+    updateItem.mutate(
+      {
+        itemId: editingItem.id,
+        name,
+        unit,
+        quantity: parseFloat(quantity) || 0,
+        minThreshold: parseFloat(minThreshold) || 10,
+        costPerUnit: parseFloat(costPerUnit) || 0,
+        supplier: supplier || undefined,
+        lastRestocked: new Date().toISOString(),
+      },
+      {
+        onSuccess: () => {
+          setEditingItem(null);
+          setShowEditDialog(false);
+          resetForm();
+          toast.success('Inventory updated');
+        },
+      }
+    );
   };
 
   const handleDeleteItem = (itemId: string) => {
     if (confirm('Are you sure you want to delete this item?')) {
-      deleteInventoryItem(restaurant.id, itemId);
-      loadData();
+      deleteItem.mutate(itemId);
     }
   };
 
   const handleRestock = (item: InventoryItem) => {
     const amount = prompt(`Enter quantity to add to ${item.name} (${item.unit}):`);
     if (amount && !isNaN(parseFloat(amount))) {
-      updateInventoryItem(restaurant.id, item.id, {
-        quantity: item.quantity + parseFloat(amount),
-        lastRestocked: new Date().toISOString()
-      });
-      loadData();
-      toast.success(`Restocked ${amount} ${item.unit} of ${item.name}`);
+      updateItem.mutate(
+        {
+          itemId: item.id,
+          quantity: item.quantity + parseFloat(amount),
+          lastRestocked: new Date().toISOString(),
+        },
+        {
+          onSuccess: () => toast.success(`Restocked ${amount} ${item.unit} of ${item.name}`),
+        }
+      );
     }
   };
 

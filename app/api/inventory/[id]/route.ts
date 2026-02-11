@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-
-// PUT /api/inventory/[id] - Update inventory item
+import { broadcastInvalidation } from "@/lib/sse";
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -42,6 +41,8 @@ export async function PUT(
       data: updateData,
     });
 
+    broadcastInvalidation(item.restaurantId, "inventory");
+
     return NextResponse.json({ item: updated });
   } catch (error) {
     if ((error as any)?.code === "P2025") {
@@ -76,6 +77,8 @@ export async function DELETE(
     await prisma.inventoryItem.delete({
       where: { id },
     });
+
+    broadcastInvalidation(item.restaurantId, "inventory");
 
     return NextResponse.json({ ok: true });
   } catch (error) {

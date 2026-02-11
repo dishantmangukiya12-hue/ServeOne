@@ -4,21 +4,21 @@ import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createQROrderSchema } from "@/lib/validations";
+import { broadcastInvalidation } from "@/lib/sse";
 
-// GET /api/qr-orders?restaurantId=xxx - List pending QR orders
+// GET /api/qr-orders?restaurantId=xxx - List pending QR orders (staff only)
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
   const { searchParams } = new URL(request.url);
   const restaurantId = searchParams.get("restaurantId");
 
-  // Allow public access for customer order page, or require auth for staff
   if (!restaurantId) {
     return NextResponse.json({ error: "Missing restaurantId" }, { status: 400 });
   }
 
-  // If user is authenticated, verify they belong to this restaurant
-  if (session?.user?.restaurantId && session.user.restaurantId !== restaurantId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  // SEC: Require authentication — no unauthenticated access to order data with PII
+  if (!session?.user?.restaurantId || session.user.restaurantId !== restaurantId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
@@ -86,6 +86,8 @@ export async function POST(request: Request) {
         createdAt: new Date(),
       },
     });
+
+    broadcastInvalidation(data.restaurantId, "qr-orders");
 
     return NextResponse.json({ order }, { status: 201 });
   } catch (error) {

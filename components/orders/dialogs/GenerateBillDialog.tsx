@@ -3,7 +3,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { Order, Restaurant, Table } from '@/services/dataService';
+import type { Order, Restaurant, Table } from '@/types/restaurant';
 
 interface GenerateBillDialogProps {
   open: boolean;

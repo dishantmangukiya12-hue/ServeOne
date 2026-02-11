@@ -16,8 +16,25 @@ import {
   Utensils, ShoppingCart, Plus, Minus, Trash2,
   CheckCircle, ChefHat, ArrowLeft, Store, Clock, Bell
 } from 'lucide-react';
-import { getRestaurantData, hydrateRestaurantData, type MenuItem, type Category } from '@/services/dataService';
 import { toast } from 'sonner';
+
+interface MenuItem {
+  id: string;
+  name: string;
+  price: number;
+  description?: string;
+  category: string;
+  isVeg?: boolean;
+  image?: string;
+  available?: boolean;
+  dineIn?: boolean;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  icon?: string;
+}
 
 interface CartItem {
   menuItemId: string;
@@ -25,20 +42,6 @@ interface CartItem {
   price: number;
   quantity: number;
   specialRequest: string;
-}
-
-interface QROrder {
-  id: string;
-  restaurantId: string;
-  tableId: string;
-  tableNumber: string;
-  customerName: string;
-  customerMobile: string;
-  items: CartItem[];
-  total: number;
-  status: 'pending_approval' | 'approved' | 'rejected';
-  createdAt: string;
-  channel: 'qr_ordering';
 }
 
 export default function CustomerOrder() {
@@ -60,22 +63,26 @@ export default function CustomerOrder() {
   const [submittedOrderId, setSubmittedOrderId] = useState<string | null>(null);
   const [orderStatus, setOrderStatus] = useState<'pending_approval' | 'approved' | 'rejected' | 'preparing' | 'ready' | 'served'>('pending_approval');
 
-  // Fetch restaurant data
+  const [tables, setTables] = useState<{ id: string; tableNumber: string; status: string }[]>([]);
+
+  // Fetch restaurant data from public API
   useEffect(() => {
     if (!restaurantId) return;
 
     const loadData = async () => {
-      let data = getRestaurantData(restaurantId);
-      if (!data) {
-        data = await hydrateRestaurantData(restaurantId);
-      }
-      if (data) {
+      try {
+        const res = await fetch(`/api/public/restaurant/${restaurantId}`);
+        if (!res.ok) {
+          setIsLoading(false);
+          return;
+        }
+        const data = await res.json();
         setRestaurant(data.restaurant);
-        setCategories(data.categories);
-        const dineInItems = data.menuItems.filter((item: MenuItem) =>
-          item.available !== false && item.dineIn !== false
-        );
-        setMenuItems(dineInItems);
+        setCategories(data.categories || []);
+        setMenuItems(data.menuItems || []);
+        setTables(data.tables || []);
+      } catch {
+        // Restaurant not found
       }
       setIsLoading(false);
     };
@@ -149,7 +156,7 @@ export default function CustomerOrder() {
   const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     if (!customerName.trim()) {
       toast.error('Please enter your name');
       return;
@@ -159,61 +166,76 @@ export default function CustomerOrder() {
       return;
     }
 
-    const order: QROrder = {
-      id: `qr_${Date.now()}`,
-      restaurantId: restaurantId!,
-      tableId: `table_${restaurantId}_${tableNumber}`,
-      tableNumber: tableNumber!,
-      customerName: customerName.trim(),
-      customerMobile: customerMobile.trim(),
-      items: cart.map(item => ({
-        ...item,
-        specialRequest: itemNotes[item.menuItemId] || item.specialRequest
-      })),
-      total: cartTotal,
-      status: 'pending_approval',
-      createdAt: new Date().toISOString(),
-      channel: 'qr_ordering'
-    };
+    // Find table ID from table number
+    const table = tables.find(t => t.tableNumber === tableNumber);
+    if (!table) {
+      toast.error('Table not found');
+      return;
+    }
 
-    // Store in pending QR orders
-    const existingOrders = JSON.parse(localStorage.getItem('pending_qr_orders') || '[]');
-    localStorage.setItem('pending_qr_orders', JSON.stringify([...existingOrders, order]));
+    try {
+      const res = await fetch('/api/qr-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          restaurantId,
+          tableId: table.id,
+          tableNumber,
+          customerName: customerName.trim(),
+          customerMobile: customerMobile.trim(),
+          items: cart.map(item => ({
+            menuItemId: item.menuItemId,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            specialRequest: itemNotes[item.menuItemId] || item.specialRequest,
+          })),
+          total: cartTotal,
+        }),
+      });
 
-    // Notify manager tab (broadcast event)
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: 'pending_qr_orders'
-    }));
+      if (!res.ok) {
+        toast.error('Failed to place order. Please try again.');
+        return;
+      }
 
-    setShowCheckout(false);
-    setCart([]);
-    setItemNotes({});
-    
-    // Show status tracking
-    setSubmittedOrderId(order.id);
-    setOrderStatus('pending_approval');
-    setShowSuccess(true);
+      const data = await res.json();
+
+      setShowCheckout(false);
+      setCart([]);
+      setItemNotes({});
+      
+      // Show status tracking
+      setSubmittedOrderId(data.order?.id || null);
+      setOrderStatus('pending_approval');
+      setShowSuccess(true);
+    } catch {
+      toast.error('Failed to place order. Please try again.');
+    }
   };
 
-  // Poll for order status updates
-  const checkOrderStatus = useCallback(() => {
+  // Poll for order status updates via public status endpoint
+  const checkOrderStatus = useCallback(async () => {
     if (!submittedOrderId) return;
-    const pendingOrders = JSON.parse(localStorage.getItem('pending_qr_orders') || '[]');
-    const order = pendingOrders.find((o: QROrder) => o.id === submittedOrderId);
-    if (order) {
-      setOrderStatus(order.status);
+    try {
+      const res = await fetch(`/api/qr-orders/status?id=${submittedOrderId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status) {
+          setOrderStatus(data.status);
+        }
+      }
+    } catch {
+      // Silently fail — will retry on next interval
     }
   }, [submittedOrderId]);
 
   useEffect(() => {
     if (!submittedOrderId) return;
-    checkOrderStatus();
-    const interval = setInterval(checkOrderStatus, 3000);
-    const handleStorage = () => checkOrderStatus();
-    window.addEventListener('storage', handleStorage);
+    void checkOrderStatus();
+    const interval = setInterval(() => void checkOrderStatus(), 3000);
     return () => {
       clearInterval(interval);
-      window.removeEventListener('storage', handleStorage);
     };
   }, [submittedOrderId, checkOrderStatus]);
 

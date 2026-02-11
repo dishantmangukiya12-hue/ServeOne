@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
-import type { MenuItem, ModifierGroup, ModifierOption, SelectedModifier } from '@/services/dataService';
+import type { MenuItem, ModifierGroup, ModifierOption, SelectedModifier } from '@/types/restaurant';
 
 interface ModifierSelectDialogProps {
   open: boolean;

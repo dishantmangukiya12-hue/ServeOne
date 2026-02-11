@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from 'react';
-import type { Table } from '@/services/dataService';
+import type { Table } from '@/types/restaurant';
 
 export interface DialogState {
   customer: boolean;

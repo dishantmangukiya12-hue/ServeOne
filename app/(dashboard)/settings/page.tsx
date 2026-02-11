@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,22 +9,11 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Store, Bell, CreditCard, Shield, Download, Upload, Table as TableIcon, Plus, Minus, Printer as PrinterIcon, Trash2, X, Receipt, IndianRupee } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import type { Table, Printer as PrinterType } from '@/services/dataService';
-import {
-  getRestaurantData,
-  saveRestaurantData,
-  exportData,
-  importData,
-  clearAllData,
-  updateRestaurantRemote,
-  updateRestaurantPasscodeRemote,
-  addPrinter,
-  updatePrinter,
-  deletePrinter,
-  getPrinters,
-} from '@/services/dataService';
+import type { Table, Printer as PrinterType, RestaurantSettings } from '@/types/restaurant';
+import { useRestaurant, useUpdateRestaurant, useTables, useCreateTable, useDeleteTable, useUpdateTable } from '@/hooks/api';
+import { api } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useDataRefresh } from '@/hooks/useServerSync';
+import { toast } from 'sonner';
 
 export default function Settings() {
   const router = useRouter();
@@ -48,7 +37,6 @@ export default function Settings() {
     card: true,
     online: false
   });
-  const [tables, setTables] = useState<Table[]>([]);
   const [printers, setPrinters] = useState<PrinterType[]>([]);
   const [showPrinterDialog, setShowPrinterDialog] = useState(false);
   const [editingPrinter, setEditingPrinter] = useState<PrinterType | null>(null);
@@ -69,69 +57,50 @@ export default function Settings() {
   const [gstNumber, setGstNumber] = useState('');
   const [showGstNumber, setShowGstNumber] = useState(false);
 
-  // Load data on mount - must be before any conditional returns
+  // React Query hooks
+  const { data: restaurantData } = useRestaurant(restaurant?.id);
+  const { data: tablesData } = useTables(restaurant?.id);
+  const updateRestaurantMutation = useUpdateRestaurant(restaurant?.id);
+  const createTableMutation = useCreateTable(restaurant?.id);
+  const deleteTableMutation = useDeleteTable(restaurant?.id);
+  const updateTableMutation = useUpdateTable(restaurant?.id);
+
+  const tables = useMemo(() => tablesData?.tables || [], [tablesData]);
+  const settingsData = useMemo<Partial<RestaurantSettings>>(() => restaurantData?.settings || {}, [restaurantData]);
+
+  // Sync settings from API to local state
   useEffect(() => {
-    if (restaurant) {
-      const data = getRestaurantData(restaurant.id);
-      if (data) {
-        setTables(data.tables);
-        setPrinters(data.printers);
-        if (data.settings?.tax) {
-          setCgst(String(data.settings.tax.cgst || 0));
-          setSgst(String(data.settings.tax.sgst || 0));
-          setTaxServiceCharge(String(data.settings.tax.serviceCharge || 0));
-        }
-        if (data.settings?.receipt) {
-          setReceiptHeader(data.settings.receipt.header || '');
-          setReceiptFooter(data.settings.receipt.footer || 'Thank you for dining with us!');
-          setGstNumber(data.settings.receipt.gstNumber || '');
-          setShowGstNumber(data.settings.receipt.showGstNumber || false);
-        }
-        if (data.settings?.notifications) {
-          setNotifications(prev => ({ ...prev, ...data.settings.notifications }));
-        }
-        if (data.settings?.payments) {
-          setPayments(prev => ({ ...prev, ...data.settings.payments }));
-        }
+    if (settingsData) {
+      if (settingsData.tax) {
+        setCgst(String(settingsData.tax.cgst || 0));
+        setSgst(String(settingsData.tax.sgst || 0));
+        setTaxServiceCharge(String(settingsData.tax.serviceCharge || 0));
+      }
+      if (settingsData.receipt) {
+        setReceiptHeader(settingsData.receipt.header || '');
+        setReceiptFooter(settingsData.receipt.footer || 'Thank you for dining with us!');
+        setGstNumber(settingsData.receipt.gstNumber || '');
+        setShowGstNumber(settingsData.receipt.showGstNumber || false);
+      }
+      if (settingsData.notifications) {
+        setNotifications(prev => ({ ...prev, ...settingsData.notifications }));
+      }
+      if (settingsData.payments) {
+        setPayments(prev => ({ ...prev, ...settingsData.payments }));
+      }
+      if (settingsData.printers) {
+        setPrinters(settingsData.printers);
       }
     }
-  }, [restaurant]);
-
-  const reloadSettings = () => {
-    if (!restaurant) return;
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      setTables(data.tables);
-      setPrinters(data.printers);
-    }
-  };
-  useDataRefresh(reloadSettings);
+  }, [settingsData]);
 
   if (!restaurant) return null;
 
-  const loadTables = () => {
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      setTables(data.tables);
-    }
-  };
-
-  const loadPrinters = () => {
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      setPrinters(data.printers);
-    }
-  };
-
   const handleSaveRestaurant = () => {
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      data.restaurant.name = name;
-      data.restaurant.mobile = mobile;
-      data.restaurant.address = address;
-      saveRestaurantData(restaurant.id, data);
-      void updateRestaurantRemote(restaurant.id, { name, mobile, address });
-    }
+    updateRestaurantMutation.mutate(
+      { name, mobile, address },
+      { onSuccess: () => toast.success('Restaurant info saved') }
+    );
   };
 
   const handleChangePasscode = () => {
@@ -141,82 +110,57 @@ export default function Settings() {
     if (newPasscode.length < 4) {
       return;
     }
+    api.put(`/api/restaurants/${restaurant.id}`, { passcode: newPasscode })
+      .then(() => {
+        toast.success('Passcode updated');
+        setCurrentPasscode('');
+        setNewPasscode('');
+        setConfirmPasscode('');
+      })
+      .catch(() => toast.error('Failed to update passcode'));
+  };
 
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      if (data.restaurant.passcode !== currentPasscode) {
-        return;
-      }
-      data.restaurant.passcode = newPasscode;
-      saveRestaurantData(restaurant.id, data);
-      void updateRestaurantPasscodeRemote(restaurant.id, newPasscode);
-      setCurrentPasscode('');
-      setNewPasscode('');
-      setConfirmPasscode('');
+  const handleExport = async () => {
+    try {
+      const data = await api.get(`/api/restaurants/${restaurant.id}`);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `serveone_backup_${restaurant.name}_${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      toast.success('Data exported');
+    } catch {
+      toast.error('Failed to export data');
     }
   };
 
-  const handleExport = () => {
-    const data = exportData(restaurant.id);
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `serveone_backup_${restaurant.name}_${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-  };
-
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const jsonData = event.target?.result as string;
-      if (importData(restaurant.id, jsonData)) {
-        window.location.reload();
-      }
-    };
-    reader.readAsText(file);
+  const handleImport = (_e: React.ChangeEvent<HTMLInputElement>) => {
+    toast.info('Import is not supported in the new architecture. Please contact support.');
   };
 
   const handleAddTable = () => {
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      const newTableNumber = String(tables.length + 1).padStart(2, '0');
-      const newTable = {
-        id: `table_${restaurant.id}_${tables.length + 1}`,
-        restaurantId: restaurant.id,
-        tableNumber: newTableNumber,
-        capacity: 4,
-        status: 'available' as const
-      };
-      data.tables.push(newTable);
-      saveRestaurantData(restaurant.id, data);
-      setTables([...data.tables]);
-    }
+    const newTableNumber = String(tables.length + 1).padStart(2, '0');
+    createTableMutation.mutate({
+      tableNumber: newTableNumber,
+      capacity: 4,
+    } as any);
   };
 
   const handleRemoveTable = () => {
-    const availableTables = tables.filter(t => t.status === 'available');
+    const availableTables = tables.filter((t: Table) => t.status === 'available');
     if (availableTables.length === 0) {
       return;
     }
     const lastTable = availableTables[availableTables.length - 1];
     if (confirm(`Remove Table ${lastTable.tableNumber}?`)) {
-      const data = getRestaurantData(restaurant.id);
-      if (data) {
-        data.tables = data.tables.filter(t => t.id !== lastTable.id);
-        saveRestaurantData(restaurant.id, data);
-        setTables([...data.tables]);
-      }
+      deleteTableMutation.mutate(lastTable.id);
     }
   };
 
   const handleClearData = () => {
     if (confirm('WARNING: This will delete ALL your data. This action cannot be undone. Are you sure?')) {
       if (prompt('Type "DELETE" to confirm:') === 'DELETE') {
-        clearAllData();
         logout();
         router.push('/login');
       }
@@ -226,7 +170,7 @@ export default function Settings() {
   const handleSavePrinter = () => {
     if (!printerName.trim()) return;
     
-    const printerData = {
+    const printerData: PrinterType = {
       id: editingPrinter?.id || `printer_${Date.now()}`,
       restaurantId: restaurant.id,
       name: printerName,
@@ -236,20 +180,28 @@ export default function Settings() {
       isActive: printerIsActive,
     };
 
+    let updatedPrinters: PrinterType[];
     if (editingPrinter) {
-      updatePrinter(restaurant.id, editingPrinter.id, printerData);
+      updatedPrinters = printers.map(p => p.id === editingPrinter.id ? printerData : p);
     } else {
-      addPrinter(restaurant.id, printerData);
+      updatedPrinters = [...printers, printerData];
     }
 
-    loadPrinters();
-    setShowPrinterDialog(false);
-    setEditingPrinter(null);
-    setPrinterName('');
-    setPrinterType('bill');
-    setPrinterPaperSize('80mm');
-    setPrinterIsDefault(false);
-    setPrinterIsActive(true);
+    updateRestaurantMutation.mutate(
+      { settings: { ...settingsData, printers: updatedPrinters } },
+      {
+        onSuccess: () => {
+          setPrinters(updatedPrinters);
+          setShowPrinterDialog(false);
+          setEditingPrinter(null);
+          setPrinterName('');
+          setPrinterType('bill');
+          setPrinterPaperSize('80mm');
+          setPrinterIsDefault(false);
+          setPrinterIsActive(true);
+        },
+      }
+    );
   };
 
   const handleEditPrinter = (printer: PrinterType) => {
@@ -264,8 +216,11 @@ export default function Settings() {
 
   const handleDeletePrinter = (printerId: string) => {
     if (confirm('Are you sure you want to delete this printer?')) {
-      deletePrinter(restaurant.id, printerId);
-      loadPrinters();
+      const updatedPrinters = printers.filter(p => p.id !== printerId);
+      updateRestaurantMutation.mutate(
+        { settings: { ...settingsData, printers: updatedPrinters } },
+        { onSuccess: () => setPrinters(updatedPrinters) }
+      );
     }
   };
 
@@ -280,10 +235,9 @@ export default function Settings() {
   };
 
   const handleSaveTaxSettings = () => {
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      data.settings = {
-        ...data.settings,
+    updateRestaurantMutation.mutate({
+      settings: {
+        ...settingsData,
         tax: {
           cgst: parseFloat(cgst) || 0,
           sgst: parseFloat(sgst) || 0,
@@ -291,51 +245,40 @@ export default function Settings() {
         },
         taxRate: (parseFloat(cgst) || 0) + (parseFloat(sgst) || 0),
         serviceCharge: parseFloat(taxServiceCharge) || 0,
-      };
-      saveRestaurantData(restaurant.id, data);
-      void updateRestaurantRemote(restaurant.id, { settings: data.settings });
-    }
+      },
+    }, { onSuccess: () => toast.success('Tax settings saved') });
   };
 
   const handleSaveReceiptSettings = () => {
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      data.settings = {
-        ...data.settings,
+    updateRestaurantMutation.mutate({
+      settings: {
+        ...settingsData,
         receipt: {
           header: receiptHeader,
           footer: receiptFooter,
           gstNumber,
           showGstNumber,
         },
-      };
-      saveRestaurantData(restaurant.id, data);
-      void updateRestaurantRemote(restaurant.id, { settings: data.settings });
-    }
+      },
+    }, { onSuccess: () => toast.success('Receipt settings saved') });
   };
 
   const handleSaveNotifications = () => {
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      data.settings = {
-        ...data.settings,
+    updateRestaurantMutation.mutate({
+      settings: {
+        ...settingsData,
         notifications,
-      };
-      saveRestaurantData(restaurant.id, data);
-      void updateRestaurantRemote(restaurant.id, { settings: data.settings });
-    }
+      },
+    }, { onSuccess: () => toast.success('Notification settings saved') });
   };
 
   const handleSavePayments = () => {
-    const data = getRestaurantData(restaurant.id);
-    if (data) {
-      data.settings = {
-        ...data.settings,
+    updateRestaurantMutation.mutate({
+      settings: {
+        ...settingsData,
         payments,
-      };
-      saveRestaurantData(restaurant.id, data);
-      void updateRestaurantRemote(restaurant.id, { settings: data.settings });
-    }
+      },
+    }, { onSuccess: () => toast.success('Payment settings saved') });
   };
 
   return (
@@ -467,13 +410,10 @@ export default function Settings() {
                         <select
                           value={table.section || ''}
                           onChange={(e) => {
-                            const data = getRestaurantData(restaurant.id);
-                            if (data) {
-                              const t = data.tables.find(tt => tt.id === table.id);
-                              if (t) t.section = e.target.value || undefined;
-                              saveRestaurantData(restaurant.id, data);
-                              setTables([...data.tables]);
-                            }
+                            updateTableMutation.mutate({
+                              tableId: table.id,
+                              section: e.target.value || undefined,
+                            } as any);
                           }}
                           className="w-full mt-1 text-[10px] bg-transparent border-0 text-center text-muted-foreground p-0 focus:ring-0"
                         >

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createMenuItemSchema } from "@/lib/validations";
+import { broadcastInvalidation } from "@/lib/sse";
 import { checkPlanLimit } from "@/lib/plan-check";
 
 // GET /api/menu/items?restaurantId=xxx&category=xxx - List menu items
@@ -87,6 +88,8 @@ export async function POST(request: Request) {
         available: data.available,
       },
     });
+
+    broadcastInvalidation(data.restaurantId, "menu-items");
 
     return NextResponse.json({ item }, { status: 201 });
   } catch (error) {

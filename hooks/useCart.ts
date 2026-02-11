@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from 'react';
-import type { MenuItem } from '@/services/dataService';
+import type { MenuItem } from '@/types/restaurant';
 import { toast } from 'sonner';
 
 export interface CartItem {

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2, GripVertical } from 'lucide-react';
-import type { MenuItem, ModifierGroup, ModifierOption } from '@/services/dataService';
+import type { MenuItem, ModifierGroup, ModifierOption } from '@/types/restaurant';
 
 interface ModifierConfigDialogProps {
   open: boolean;
