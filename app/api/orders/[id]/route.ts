@@ -7,7 +7,10 @@ import { broadcastInvalidation } from "@/lib/sse";
 
 // VULN-18 fix: Define allowed order status transitions
 const VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
-  active: ["pending_payment", "cancelled"],
+  active: ["preparing", "pending_payment", "cancelled"],
+  preparing: ["ready", "pending_payment", "cancelled"],
+  ready: ["served", "pending_payment", "cancelled"],
+  served: ["pending_payment", "closed", "cancelled"],
   pending_payment: ["closed", "active", "cancelled"],
   closed: [], // terminal state
   cancelled: [], // terminal state

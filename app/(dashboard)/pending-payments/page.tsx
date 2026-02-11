@@ -43,7 +43,7 @@ export default function PendingPayments() {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
 
-  const { data: ordersData } = useOrders(restaurant?.id, { status: 'pending_payment', limit: 10000 });
+  const { data: ordersData } = useOrders(restaurant?.id, { status: 'pending_payment', limit: 500 });
   const settleOrder = useSettleOrder(restaurant?.id);
   const cancelOrderMutation = useCancelOrder(restaurant?.id);
 

@@ -29,7 +29,7 @@ export default function Home() {
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-  const { data: ordersData } = useOrders(restaurant?.id, { date: todayStr, limit: 10000 });
+  const { data: ordersData } = useOrders(restaurant?.id, { date: todayStr, limit: 500 });
   const { data: tablesData } = useTables(restaurant?.id);
   const { data: expensesData } = useExpenses(restaurant?.id, { date: todayStr });
 

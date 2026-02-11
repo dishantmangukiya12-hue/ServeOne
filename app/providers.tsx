@@ -12,13 +12,14 @@ function makeQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 30_000,        // 30 seconds before data is considered stale
+        staleTime: 5_000,         // 5 seconds — POS needs near-real-time freshness
+        gcTime: 5 * 60 * 1000,   // 5 minutes garbage collection
         refetchOnWindowFocus: true,
-        retry: 2,
+        retry: 1,
         refetchOnReconnect: true,
       },
       mutations: {
-        retry: 1,
+        retry: 0,                 // Don't retry mutations — show error immediately
       },
     },
   });

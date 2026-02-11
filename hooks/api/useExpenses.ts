@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type { Expense } from "@/types/restaurant";
 import { toast } from "sonner";
@@ -24,6 +24,7 @@ export function useExpenses(restaurantId: string | undefined, filters?: { date?:
     queryKey: ["expenses", restaurantId, filters],
     queryFn: () => api.get(`/api/expenses?${params.toString()}`),
     enabled: !!restaurantId,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -39,11 +40,15 @@ export function useCreateExpense(restaurantId: string | undefined) {
       date: string;
       createdBy?: string;
     }) => api.post<ExpenseResponse>("/api/expenses", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["expenses", restaurantId] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard", restaurantId] });
+    onSuccess: (data) => {
+      queryClient.setQueriesData<ExpensesResponse>(
+        { queryKey: ["expenses", restaurantId] },
+        (old) => old ? { ...old, expenses: [...old.expenses, data.expense], total: old.total + 1 } : old
+      );
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["expenses", restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", restaurantId] });
       toast.error(error.message || "Failed to create expense");
     },
   });
@@ -62,11 +67,15 @@ export function useUpdateExpense(restaurantId: string | undefined) {
       description?: string;
       date?: string;
     }) => api.put<ExpenseResponse>(`/api/expenses/${expenseId}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["expenses", restaurantId] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard", restaurantId] });
+    onSuccess: (data) => {
+      queryClient.setQueriesData<ExpensesResponse>(
+        { queryKey: ["expenses", restaurantId] },
+        (old) => old ? { ...old, expenses: old.expenses.map(e => e.id === data.expense.id ? data.expense : e) } : old
+      );
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["expenses", restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", restaurantId] });
       toast.error(error.message || "Failed to update expense");
     },
   });
@@ -77,11 +86,15 @@ export function useDeleteExpense(restaurantId: string | undefined) {
 
   return useMutation({
     mutationFn: (expenseId: string) => api.delete(`/api/expenses/${expenseId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["expenses", restaurantId] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard", restaurantId] });
+    onSuccess: (_data, expenseId) => {
+      queryClient.setQueriesData<ExpensesResponse>(
+        { queryKey: ["expenses", restaurantId] },
+        (old) => old ? { ...old, expenses: old.expenses.filter(e => e.id !== expenseId), total: old.total - 1 } : old
+      );
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["expenses", restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", restaurantId] });
       toast.error(error.message || "Failed to delete expense");
     },
   });

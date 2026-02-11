@@ -62,7 +62,7 @@ export default function Orders() {
   const { data: categoriesData } = useCategories(restaurant?.id);
   const { data: restaurantData } = useRestaurant(restaurant?.id);
   const { data: usersData } = useUsers(restaurant?.id);
-  const { data: ordersData } = useOrders(restaurant?.id, { limit: 10000 });
+  const { data: ordersData } = useOrders(restaurant?.id, { limit: 500 });
   const { data: qrOrdersData } = useQROrders(restaurant?.id);
 
   // Mutations

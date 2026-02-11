@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type { Table } from "@/types/restaurant";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ export function useTables(restaurantId: string | undefined) {
     queryKey: ["tables", restaurantId],
     queryFn: () => api.get(`/api/tables?restaurantId=${restaurantId}&limit=500`),
     enabled: !!restaurantId,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -33,10 +34,16 @@ export function useCreateTable(restaurantId: string | undefined) {
       status?: string;
       section?: string;
     }) => api.post<TableResponse>("/api/tables", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tables", restaurantId] });
+    onSuccess: (data) => {
+      // Optimistic: inject new table into cache
+      queryClient.setQueriesData<TablesResponse>(
+        { queryKey: ["tables", restaurantId] },
+        (old) => old ? { ...old, tables: [...old.tables, data.table].sort((a, b) => a.tableNumber.localeCompare(b.tableNumber)), total: old.total + 1 } : old
+      );
+      // SSE handles authoritative refetch
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["tables", restaurantId] });
       toast.error(error.message || "Failed to create table");
     },
   });
@@ -55,11 +62,20 @@ export function useUpdateTable(restaurantId: string | undefined) {
       section?: string;
       mergedWith?: string;
     }) => api.put<TableResponse>(`/api/tables/${tableId}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tables", restaurantId] });
-      queryClient.invalidateQueries({ queryKey: ["orders", restaurantId] });
+    onSuccess: (data) => {
+      // Optimistic: update table in cache
+      queryClient.setQueriesData<TablesResponse>(
+        { queryKey: ["tables", restaurantId] },
+        (old) => old ? {
+          ...old,
+          tables: old.tables.map(t => t.id === data.table.id ? data.table : t),
+        } : old
+      );
+      // SSE handles authoritative refetch
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["tables", restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ["orders", restaurantId] });
       toast.error(error.message || "Failed to update table");
     },
   });
@@ -70,10 +86,20 @@ export function useDeleteTable(restaurantId: string | undefined) {
 
   return useMutation({
     mutationFn: (tableId: string) => api.delete(`/api/tables/${tableId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tables", restaurantId] });
+    onSuccess: (_data, tableId) => {
+      // Optimistic: remove table from cache
+      queryClient.setQueriesData<TablesResponse>(
+        { queryKey: ["tables", restaurantId] },
+        (old) => old ? {
+          ...old,
+          tables: old.tables.filter(t => t.id !== tableId),
+          total: old.total - 1,
+        } : old
+      );
+      // SSE handles authoritative refetch
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["tables", restaurantId] });
       toast.error(error.message || "Failed to delete table");
     },
   });

@@ -21,7 +21,7 @@ export default function Customers() {
   const { restaurant } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const { data: ordersData } = useOrders(restaurant?.id, { limit: 10000 });
+  const { data: ordersData } = useOrders(restaurant?.id, { limit: 500 });
 
   const customers = useMemo(() => {
     if (!ordersData?.orders) return [];

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 import { api } from '@/lib/api-client';
 import type { Restaurant } from '@/types/restaurant';
@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void initializeAuth();
   }, [session, status]);
 
-  const login = (restaurantData: Restaurant, sessionUser?: { userId?: string; role?: string }) => {
+  const login = useCallback((restaurantData: Restaurant, sessionUser?: { userId?: string; role?: string }) => {
     const restaurantId = restaurantData.id;
     const userId = sessionUser?.userId ?? session?.user?.userId;
     const role = sessionUser?.role ?? session?.user?.role;
@@ -83,16 +83,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     setRestaurant(restaurantData);
     setIsAuthenticated(true);
-  };
+  }, [session?.user?.userId, session?.user?.role]);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setIsAuthenticated(false);
     setUser(null);
     setRestaurant(null);
     void signOut({ redirect: false });
-  };
+  }, []);
 
-  const refreshRestaurant = () => {
+  const refreshRestaurant = useCallback(() => {
     if (user) {
       api.get<{
         id: string;
@@ -112,20 +112,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         toast.error('Failed to refresh restaurant data');
       });
     }
-  };
+  }, [user]);
+
+  const value = useMemo(() => ({
+    isAuthenticated,
+    user,
+    restaurant,
+    loading,
+    login,
+    logout,
+    refreshRestaurant,
+  }), [isAuthenticated, user, restaurant, loading, login, logout, refreshRestaurant]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        isAuthenticated,
-        user,
-        restaurant,
-        loading,
-        login,
-        logout,
-        refreshRestaurant,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

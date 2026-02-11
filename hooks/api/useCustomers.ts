@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type { Customer } from "@/types/restaurant";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ export function useCustomers(restaurantId: string | undefined) {
     queryKey: ["customers", restaurantId],
     queryFn: () => api.get(`/api/customers?restaurantId=${restaurantId}`),
     enabled: !!restaurantId,
+    placeholderData: keepPreviousData,
   });
 }
 

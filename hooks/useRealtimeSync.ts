@@ -40,6 +40,10 @@ export function useRealtimeSync(restaurantId: string | undefined) {
         const entity = data.entity as string;
         // Invalidate the specific entity's query cache
         queryClient.invalidateQueries({ queryKey: [entity, restaurantId] });
+        // Also invalidate singular queries (e.g. "order" when "orders" changes)
+        if (entity === "orders") {
+          queryClient.invalidateQueries({ queryKey: ["order"] });
+        }
         // Also invalidate "all" composite queries that depend on multiple entities
         queryClient.invalidateQueries({ queryKey: ["dashboard", restaurantId] });
       } catch {

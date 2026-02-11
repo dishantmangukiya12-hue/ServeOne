@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type { WaitlistEntry } from "@/types/restaurant";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ export function useWaitlist(restaurantId: string | undefined) {
     queryKey: ["waitlist", restaurantId],
     queryFn: () => api.get(`/api/waitlist?restaurantId=${restaurantId}`),
     enabled: !!restaurantId,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -34,10 +35,14 @@ export function useCreateWaitlistEntry(restaurantId: string | undefined) {
       estimatedWait: number;
       notes?: string | null;
     }) => api.post<WaitlistEntryResponse>("/api/waitlist", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["waitlist", restaurantId] });
+    onSuccess: (data) => {
+      queryClient.setQueriesData<WaitlistResponse>(
+        { queryKey: ["waitlist", restaurantId] },
+        (old) => old ? { ...old, entries: [...old.entries, data.entry], total: old.total + 1 } : old
+      );
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["waitlist", restaurantId] });
       toast.error(error.message || "Failed to add to waitlist");
     },
   });
@@ -53,10 +58,14 @@ export function useUpdateWaitlistEntry(restaurantId: string | undefined) {
       estimatedWait?: number;
       notes?: string | null;
     }) => api.put<WaitlistEntryResponse>(`/api/waitlist/${entryId}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["waitlist", restaurantId] });
+    onSuccess: (data) => {
+      queryClient.setQueriesData<WaitlistResponse>(
+        { queryKey: ["waitlist", restaurantId] },
+        (old) => old ? { ...old, entries: old.entries.map(e => e.id === data.entry.id ? data.entry : e) } : old
+      );
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["waitlist", restaurantId] });
       toast.error(error.message || "Failed to update waitlist entry");
     },
   });
@@ -67,10 +76,14 @@ export function useDeleteWaitlistEntry(restaurantId: string | undefined) {
 
   return useMutation({
     mutationFn: (entryId: string) => api.delete(`/api/waitlist/${entryId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["waitlist", restaurantId] });
+    onSuccess: (_data, entryId) => {
+      queryClient.setQueriesData<WaitlistResponse>(
+        { queryKey: ["waitlist", restaurantId] },
+        (old) => old ? { ...old, entries: old.entries.filter(e => e.id !== entryId), total: old.total - 1 } : old
+      );
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["waitlist", restaurantId] });
       toast.error(error.message || "Failed to remove from waitlist");
     },
   });

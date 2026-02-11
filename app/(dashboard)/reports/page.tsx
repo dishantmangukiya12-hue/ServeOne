@@ -123,7 +123,7 @@ export default function Reports() {
     ...(isPending
       ? { status: 'pending_payment' }
       : { startDate: dateFilters.startDate, endDate: dateFilters.endDate, status: 'closed,pending_payment' }),
-    limit: 10000,
+    limit: 500,
   });
 
   const settleOrderMutation = useSettleOrder(restaurant?.id);

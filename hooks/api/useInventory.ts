@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type { InventoryItem } from "@/types/restaurant";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ export function useInventory(restaurantId: string | undefined) {
     queryKey: ["inventory", restaurantId],
     queryFn: () => api.get(`/api/inventory?restaurantId=${restaurantId}`),
     enabled: !!restaurantId,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -35,10 +36,14 @@ export function useCreateInventoryItem(restaurantId: string | undefined) {
       costPerUnit?: number;
       supplier?: string;
     }) => api.post<InventoryItemResponse>("/api/inventory", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["inventory", restaurantId] });
+    onSuccess: (data) => {
+      queryClient.setQueriesData<InventoryResponse>(
+        { queryKey: ["inventory", restaurantId] },
+        (old) => old ? { ...old, items: [...old.items, data.item], total: old.total + 1 } : old
+      );
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["inventory", restaurantId] });
       toast.error(error.message || "Failed to add inventory item");
     },
   });
@@ -58,10 +63,14 @@ export function useUpdateInventoryItem(restaurantId: string | undefined) {
       supplier?: string;
       lastRestocked?: string;
     }) => api.put<InventoryItemResponse>(`/api/inventory/${itemId}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["inventory", restaurantId] });
+    onSuccess: (data) => {
+      queryClient.setQueriesData<InventoryResponse>(
+        { queryKey: ["inventory", restaurantId] },
+        (old) => old ? { ...old, items: old.items.map(i => i.id === data.item.id ? data.item : i) } : old
+      );
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["inventory", restaurantId] });
       toast.error(error.message || "Failed to update inventory item");
     },
   });
@@ -72,10 +81,14 @@ export function useDeleteInventoryItem(restaurantId: string | undefined) {
 
   return useMutation({
     mutationFn: (itemId: string) => api.delete(`/api/inventory/${itemId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["inventory", restaurantId] });
+    onSuccess: (_data, itemId) => {
+      queryClient.setQueriesData<InventoryResponse>(
+        { queryKey: ["inventory", restaurantId] },
+        (old) => old ? { ...old, items: old.items.filter(i => i.id !== itemId), total: old.total - 1 } : old
+      );
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["inventory", restaurantId] });
       toast.error(error.message || "Failed to delete inventory item");
     },
   });

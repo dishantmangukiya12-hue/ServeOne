@@ -175,7 +175,7 @@ export default function Dashboard() {
   const { data: ordersData } = useOrders(restaurant?.id, {
     startDate: currentDates.startDate,
     endDate: currentDates.endDate,
-    limit: 10000,
+    limit: 500,
   });
 
   // Fetch previous period orders for comparison
@@ -183,7 +183,7 @@ export default function Dashboard() {
     startDate: prevDates.startDate,
     endDate: prevDates.endDate,
     status: 'closed',
-    limit: 10000,
+    limit: 500,
   });
 
   // Fetch inventory for alerts

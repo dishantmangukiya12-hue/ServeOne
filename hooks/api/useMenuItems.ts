@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type { MenuItem, Category } from "@/types/restaurant";
 import { toast } from "sonner";
@@ -21,6 +21,7 @@ export function useCategories(restaurantId: string | undefined) {
     queryKey: ["categories", restaurantId],
     queryFn: () => api.get(`/api/menu/categories?restaurantId=${restaurantId}`),
     enabled: !!restaurantId,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -30,10 +31,14 @@ export function useCreateCategory(restaurantId: string | undefined) {
   return useMutation({
     mutationFn: (data: { restaurantId: string; name: string; icon: string; sortingOrder: number }) =>
       api.post<CategoryResponse>("/api/menu/categories", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories", restaurantId] });
+    onSuccess: (data) => {
+      queryClient.setQueriesData<CategoriesResponse>(
+        { queryKey: ["categories", restaurantId] },
+        (old) => old ? { ...old, categories: [...old.categories, data.category] } : old
+      );
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["categories", restaurantId] });
       toast.error(error.message || "Failed to create category");
     },
   });
@@ -45,10 +50,14 @@ export function useUpdateCategory(restaurantId: string | undefined) {
   return useMutation({
     mutationFn: ({ categoryId, ...data }: { categoryId: string; name?: string; icon?: string; sortingOrder?: number }) =>
       api.put<CategoryResponse>(`/api/menu/categories/${categoryId}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories", restaurantId] });
+    onSuccess: (data) => {
+      queryClient.setQueriesData<CategoriesResponse>(
+        { queryKey: ["categories", restaurantId] },
+        (old) => old ? { ...old, categories: old.categories.map(c => c.id === data.category.id ? data.category : c) } : old
+      );
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["categories", restaurantId] });
       toast.error(error.message || "Failed to update category");
     },
   });
@@ -59,10 +68,14 @@ export function useDeleteCategory(restaurantId: string | undefined) {
 
   return useMutation({
     mutationFn: (categoryId: string) => api.delete(`/api/menu/categories/${categoryId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories", restaurantId] });
+    onSuccess: (_data, categoryId) => {
+      queryClient.setQueriesData<CategoriesResponse>(
+        { queryKey: ["categories", restaurantId] },
+        (old) => old ? { ...old, categories: old.categories.filter(c => c.id !== categoryId) } : old
+      );
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["categories", restaurantId] });
       toast.error(error.message || "Failed to delete category");
     },
   });
@@ -88,6 +101,7 @@ export function useMenuItems(restaurantId: string | undefined, category?: string
     queryKey: ["menu-items", restaurantId, category],
     queryFn: () => api.get(`/api/menu/items?${params.toString()}`),
     enabled: !!restaurantId,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -112,10 +126,14 @@ export function useCreateMenuItem(restaurantId: string | undefined) {
       lowStockThreshold?: number | null;
       available?: boolean;
     }) => api.post<MenuItemResponse>("/api/menu/items", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["menu-items", restaurantId] });
+    onSuccess: (data) => {
+      queryClient.setQueriesData<MenuItemsResponse>(
+        { queryKey: ["menu-items", restaurantId] },
+        (old) => old ? { ...old, items: [...old.items, data.item], total: old.total + 1 } : old
+      );
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["menu-items", restaurantId] });
       toast.error(error.message || "Failed to create menu item");
     },
   });
@@ -142,10 +160,14 @@ export function useUpdateMenuItem(restaurantId: string | undefined) {
       lowStockThreshold?: number | null;
       available?: boolean;
     }) => api.put<MenuItemResponse>(`/api/menu/items/${itemId}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["menu-items", restaurantId] });
+    onSuccess: (data) => {
+      queryClient.setQueriesData<MenuItemsResponse>(
+        { queryKey: ["menu-items", restaurantId] },
+        (old) => old ? { ...old, items: old.items.map(i => i.id === data.item.id ? data.item : i) } : old
+      );
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["menu-items", restaurantId] });
       toast.error(error.message || "Failed to update menu item");
     },
   });
@@ -156,10 +178,14 @@ export function useDeleteMenuItem(restaurantId: string | undefined) {
 
   return useMutation({
     mutationFn: (itemId: string) => api.delete(`/api/menu/items/${itemId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["menu-items", restaurantId] });
+    onSuccess: (_data, itemId) => {
+      queryClient.setQueriesData<MenuItemsResponse>(
+        { queryKey: ["menu-items", restaurantId] },
+        (old) => old ? { ...old, items: old.items.filter(i => i.id !== itemId), total: old.total - 1 } : old
+      );
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["menu-items", restaurantId] });
       toast.error(error.message || "Failed to delete menu item");
     },
   });

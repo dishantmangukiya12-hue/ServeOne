@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type { Reservation } from "@/types/restaurant";
 import { toast } from "sonner";
@@ -23,6 +23,7 @@ export function useReservations(restaurantId: string | undefined, date?: string)
     queryKey: ["reservations", restaurantId, date],
     queryFn: () => api.get(`/api/reservations?${params.toString()}`),
     enabled: !!restaurantId,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -41,10 +42,14 @@ export function useCreateReservation(restaurantId: string | undefined) {
       status?: string;
       notes?: string | null;
     }) => api.post<ReservationResponse>("/api/reservations", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reservations", restaurantId] });
+    onSuccess: (data) => {
+      queryClient.setQueriesData<ReservationsResponse>(
+        { queryKey: ["reservations", restaurantId] },
+        (old) => old ? { ...old, reservations: [...old.reservations, data.reservation], total: old.total + 1 } : old
+      );
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["reservations", restaurantId] });
       toast.error(error.message || "Failed to create reservation");
     },
   });
@@ -65,11 +70,15 @@ export function useUpdateReservation(restaurantId: string | undefined) {
       status?: string;
       notes?: string | null;
     }) => api.put<ReservationResponse>(`/api/reservations/${reservationId}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reservations", restaurantId] });
-      queryClient.invalidateQueries({ queryKey: ["tables", restaurantId] });
+    onSuccess: (data) => {
+      queryClient.setQueriesData<ReservationsResponse>(
+        { queryKey: ["reservations", restaurantId] },
+        (old) => old ? { ...old, reservations: old.reservations.map(r => r.id === data.reservation.id ? data.reservation : r) } : old
+      );
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["reservations", restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ["tables", restaurantId] });
       toast.error(error.message || "Failed to update reservation");
     },
   });
@@ -80,10 +89,14 @@ export function useDeleteReservation(restaurantId: string | undefined) {
 
   return useMutation({
     mutationFn: (reservationId: string) => api.delete(`/api/reservations/${reservationId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reservations", restaurantId] });
+    onSuccess: (_data, reservationId) => {
+      queryClient.setQueriesData<ReservationsResponse>(
+        { queryKey: ["reservations", restaurantId] },
+        (old) => old ? { ...old, reservations: old.reservations.filter(r => r.id !== reservationId), total: old.total - 1 } : old
+      );
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["reservations", restaurantId] });
       toast.error(error.message || "Failed to delete reservation");
     },
   });

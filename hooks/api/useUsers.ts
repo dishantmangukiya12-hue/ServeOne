@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type { User } from "@/types/restaurant";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ export function useUsers(restaurantId: string | undefined) {
     queryKey: ["users", restaurantId],
     queryFn: () => api.get(`/api/users?restaurantId=${restaurantId}`),
     enabled: !!restaurantId,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -34,10 +35,14 @@ export function useCreateUser(restaurantId: string | undefined) {
       passcode: string;
       role: string;
     }) => api.post<UserResponse>("/api/users", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["users", restaurantId] });
+    onSuccess: (data) => {
+      queryClient.setQueriesData<UsersResponse>(
+        { queryKey: ["users", restaurantId] },
+        (old) => old ? { ...old, users: [...old.users, data.user], total: old.total + 1 } : old
+      );
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["users", restaurantId] });
       toast.error(error.message || "Failed to create user");
     },
   });
@@ -56,10 +61,14 @@ export function useUpdateUser(restaurantId: string | undefined) {
       role?: string;
       status?: string;
     }) => api.put<UserResponse>(`/api/users/${userId}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["users", restaurantId] });
+    onSuccess: (data) => {
+      queryClient.setQueriesData<UsersResponse>(
+        { queryKey: ["users", restaurantId] },
+        (old) => old ? { ...old, users: old.users.map(u => u.id === data.user.id ? data.user : u) } : old
+      );
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["users", restaurantId] });
       toast.error(error.message || "Failed to update user");
     },
   });
@@ -70,10 +79,14 @@ export function useDeleteUser(restaurantId: string | undefined) {
 
   return useMutation({
     mutationFn: (userId: string) => api.delete(`/api/users/${userId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["users", restaurantId] });
+    onSuccess: (_data, userId) => {
+      queryClient.setQueriesData<UsersResponse>(
+        { queryKey: ["users", restaurantId] },
+        (old) => old ? { ...old, users: old.users.filter(u => u.id !== userId), total: old.total - 1 } : old
+      );
     },
     onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["users", restaurantId] });
       toast.error(error.message || "Failed to delete user");
     },
   });

@@ -37,7 +37,7 @@ export default function KDS() {
   const [filter, setFilter] = useState<OrderStatus | 'all'>('all');
   const lastOrderCountRef = useRef(0);
 
-  const { data: ordersData } = useOrders(restaurant?.id, { status: 'active', limit: 10000 });
+  const { data: ordersData } = useOrders(restaurant?.id, { status: 'active', limit: 500 });
   const updateOrder = useUpdateOrder(restaurant?.id);
 
   // Get kitchen orders filtered
