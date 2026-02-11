@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { PLANS, type PlanId, type Plan, FEATURE_LABELS, type FeatureKey, FREE_TRIAL_DAYS } from "@/lib/plans";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from 'sonner';
 
 declare global {
   interface Window {
@@ -106,7 +107,7 @@ export default function BillingPage() {
 
       if (!res.ok) {
         const err = await res.json();
-        alert(err.error || "Failed to create subscription");
+        toast.error(err.error || "Failed to create subscription");
         return;
       }
 
@@ -133,9 +134,9 @@ export default function BillingPage() {
 
           if (verifyRes.ok) {
             await loadBilling();
-            alert("Subscription activated successfully!");
+            toast.success("Subscription activated successfully!");
           } else {
-            alert("Payment verification failed. Please contact support.");
+            toast.error("Payment verification failed. Please contact support.");
           }
         },
         prefill: {
@@ -150,7 +151,7 @@ export default function BillingPage() {
       rzp.open();
     } catch (err) {
       console.error("Subscribe error:", err);
-      alert("Something went wrong. Please try again.");
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setSubscribing(null);
     }
@@ -163,14 +164,14 @@ export default function BillingPage() {
       if (res.ok) {
         setShowCancelConfirm(false);
         await loadBilling();
-        alert("Subscription cancelled. You can continue using your plan until the current billing period ends.");
+        toast.success("Subscription cancelled. You can continue using your plan until the current billing period ends.");
       } else {
         const err = await res.json();
-        alert(err.error || "Failed to cancel subscription");
+        toast.error(err.error || "Failed to cancel subscription");
       }
     } catch (err) {
       console.error("Cancel error:", err);
-      alert("Something went wrong.");
+      toast.error("Something went wrong.");
     } finally {
       setCancelling(false);
     }

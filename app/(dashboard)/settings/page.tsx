@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoading } from '@/components/PageLoading';
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
@@ -94,7 +95,7 @@ export default function Settings() {
     }
   }, [settingsData]);
 
-  if (!restaurant) return null;
+  if (!restaurant) return <PageLoading message="Loading settings..." />;
 
   const handleSaveRestaurant = () => {
     updateRestaurantMutation.mutate(
@@ -105,9 +106,11 @@ export default function Settings() {
 
   const handleChangePasscode = () => {
     if (newPasscode !== confirmPasscode) {
+      toast.error('Passcodes do not match');
       return;
     }
     if (newPasscode.length < 4) {
+      toast.error('Passcode must be at least 4 characters');
       return;
     }
     api.put(`/api/restaurants/${restaurant.id}`, { passcode: newPasscode })
@@ -142,9 +145,10 @@ export default function Settings() {
   const handleAddTable = () => {
     const newTableNumber = String(tables.length + 1).padStart(2, '0');
     createTableMutation.mutate({
+      restaurantId: restaurant.id,
       tableNumber: newTableNumber,
       capacity: 4,
-    } as any);
+    });
   };
 
   const handleRemoveTable = () => {

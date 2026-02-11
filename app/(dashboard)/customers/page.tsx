@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoading } from '@/components/PageLoading';
 import { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrders } from '@/hooks/api';
@@ -60,7 +61,7 @@ export default function Customers() {
   );
 
   if (!restaurant) {
-    return null;
+    return <PageLoading message="Loading customers..." />;
   }
 
   return (

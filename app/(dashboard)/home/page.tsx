@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoading } from '@/components/PageLoading';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
@@ -68,7 +69,7 @@ export default function Home() {
   const profit = todayStats.sales - todayStats.expenses;
   const occupiedCount = tables.filter(t => t.status === 'occupied').length;
 
-  if (!restaurant) return null;
+  if (!restaurant) return <PageLoading message="Loading dashboard..." />;
 
   return (
     <div className="min-h-screen bg-background">

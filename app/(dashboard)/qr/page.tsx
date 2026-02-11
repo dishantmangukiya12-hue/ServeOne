@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoading } from '@/components/PageLoading';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTables } from '@/hooks/api';
@@ -70,7 +71,7 @@ export default function QROrdering() {
   };
 
   if (!restaurant) {
-    return null;
+    return <PageLoading message="Loading QR codes..." />;
   }
 
   return (

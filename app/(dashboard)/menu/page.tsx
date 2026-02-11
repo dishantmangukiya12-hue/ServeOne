@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoading } from '@/components/PageLoading';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMenuItems, useCategories, useCreateMenuItem, useUpdateMenuItem, useDeleteMenuItem, useCreateCategory, useInventory, useRestaurant, useUpdateRestaurant } from '@/hooks/api';
@@ -9,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2, Settings, Sliders, Package, X } from 'lucide-react';
+import { toast } from 'sonner';
 import type { Category, MenuItem, ModifierGroup, InventoryItem } from '@/types/restaurant';
 import { ModifierConfigDialog } from '@/components/menu/ModifierConfigDialog';
 
@@ -94,7 +96,11 @@ export default function Menu() {
   };
 
   const handleAddCategory = () => {
-    if (!categoryName || !restaurant) return;
+    if (!categoryName) {
+      toast.error('Please enter a category name');
+      return;
+    }
+    if (!restaurant) return;
 
     createCategory.mutate(
       {
@@ -113,7 +119,19 @@ export default function Menu() {
   };
 
   const handleAddItem = () => {
-    if (!itemName || !itemPrice || !itemCategory || !restaurant) return;
+    if (!itemName) {
+      toast.error('Please enter an item name');
+      return;
+    }
+    if (!itemPrice) {
+      toast.error('Please enter a price');
+      return;
+    }
+    if (!itemCategory) {
+      toast.error('Please select a category');
+      return;
+    }
+    if (!restaurant) return;
 
     createMenuItem.mutate(
       {
@@ -266,7 +284,7 @@ export default function Menu() {
     : 'All Items';
 
   if (!restaurant) {
-    return null;
+    return <PageLoading message="Loading menu..." />;
   }
 
   return (

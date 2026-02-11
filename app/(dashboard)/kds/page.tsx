@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoading } from '@/components/PageLoading';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -162,7 +163,7 @@ export default function KDS() {
   };
 
   if (!restaurant) {
-    return null;
+    return <PageLoading message="Loading kitchen display..." />;
   }
 
   return (

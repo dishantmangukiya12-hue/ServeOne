@@ -1,6 +1,6 @@
 ﻿"use client";
 
-
+import { PageLoading } from '@/components/PageLoading';
 
 import { useState, useMemo } from 'react';
 
@@ -372,9 +372,7 @@ export default function Dashboard() {
 
 
   if (!restaurant) {
-
-    return null;
-
+    return <PageLoading message="Loading dashboard..." />;
   }
 
 

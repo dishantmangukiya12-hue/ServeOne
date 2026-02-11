@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoading } from '@/components/PageLoading';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCustomers, useRestaurant, useUpdateRestaurant } from '@/hooks/api';
@@ -60,7 +61,7 @@ export default function Loyalty() {
   const totalCustomers = customers.length;
 
   if (!restaurant) {
-    return null;
+    return <PageLoading message="Loading loyalty..." />;
   }
 
   if (!settings.enableLoyalty) {

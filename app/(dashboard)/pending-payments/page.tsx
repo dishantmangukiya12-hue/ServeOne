@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoading } from '@/components/PageLoading';
 import { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrders, useSettleOrder, useCancelOrder } from '@/hooks/api';
@@ -107,7 +108,7 @@ export default function PendingPayments() {
   const totalOrders = filteredOrders.length;
 
   if (!restaurant) {
-    return null;
+    return <PageLoading message="Loading payments..." />;
   }
 
   return (

@@ -17,7 +17,7 @@ interface TableResponse {
 export function useTables(restaurantId: string | undefined) {
   return useQuery<TablesResponse>({
     queryKey: ["tables", restaurantId],
-    queryFn: () => api.get(`/api/tables?restaurantId=${restaurantId}`),
+    queryFn: () => api.get(`/api/tables?restaurantId=${restaurantId}&limit=500`),
     enabled: !!restaurantId,
   });
 }

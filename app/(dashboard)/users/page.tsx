@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoading } from '@/components/PageLoading';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '@/hooks/api';
@@ -9,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import type { User } from '@/types/restaurant';
+import { toast } from 'sonner';
 
 export default function Users() {
   const { restaurant } = useAuth();
@@ -30,6 +32,10 @@ export default function Users() {
 
   const handleAddUser = () => {
     if (!restaurant) return;
+    if (!name.trim()) {
+      toast.error('Please enter a name');
+      return;
+    }
     createUser.mutate(
       {
         restaurantId: restaurant.id,
@@ -52,6 +58,10 @@ export default function Users() {
 
   const handleEditUser = () => {
     if (!editingUser || !restaurant) return;
+    if (!name.trim()) {
+      toast.error('Please enter a name');
+      return;
+    }
     updateUser.mutate(
       { userId: editingUser.id, name, email, role },
       {
@@ -92,7 +102,7 @@ export default function Users() {
   );
 
   if (!restaurant) {
-    return null;
+    return <PageLoading message="Loading staff..." />;
   }
 
   return (

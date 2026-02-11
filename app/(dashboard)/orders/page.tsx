@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoading } from '@/components/PageLoading';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import type { MenuItem, Order, Table, OrderChannel, User as StaffUser, RestaurantSettings } from '@/types/restaurant';
@@ -701,7 +702,7 @@ export default function Orders() {
     );
   };
 
-  if (!restaurant) return null;
+  if (!restaurant) return <PageLoading message="Loading orders..." />;
 
   // Editing order view
   if (isEditingOrder && selectedTable && !showCustomerDialog && !showOrderItemsDialog) {

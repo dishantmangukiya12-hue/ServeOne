@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from '
 import { signOut, useSession } from 'next-auth/react';
 import { api } from '@/lib/api-client';
 import type { Restaurant } from '@/types/restaurant';
+import { toast } from 'sonner';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -107,7 +108,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           address: data.address || '',
           createdAt: '',
         });
-      }).catch(() => {});
+      }).catch(() => {
+        toast.error('Failed to refresh restaurant data');
+      });
     }
   };
 

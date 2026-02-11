@@ -1,6 +1,6 @@
 "use client";
 
-
+import { PageLoading } from '@/components/PageLoading';
 
 import { useState, useEffect, useMemo } from 'react';
 
@@ -239,6 +239,8 @@ export default function Reservations() {
   const handleRemoveFromWaitlist = (entry: WaitlistEntry, reason: 'seated' | 'left') => {
 
     if (!restaurant) return;
+
+    if (reason === 'left' && !confirm(`Remove ${entry.customerName} from the waitlist?`)) return;
 
     const allWaitlist = JSON.parse(localStorage.getItem(`waitlist_${restaurant.id}`) || '[]');
 
@@ -520,9 +522,7 @@ export default function Reservations() {
 
 
   if (!restaurant) {
-
-    return null;
-
+    return <PageLoading message="Loading reservations..." />;
   }
 
 

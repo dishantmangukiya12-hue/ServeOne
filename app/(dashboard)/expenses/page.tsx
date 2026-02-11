@@ -1,6 +1,6 @@
 "use client";
 
-
+import { PageLoading } from '@/components/PageLoading';
 
 import { useState } from 'react';
 
@@ -476,9 +476,7 @@ export default function Expenses() {
 
 
   if (!restaurant) {
-
-    return null;
-
+    return <PageLoading message="Loading expenses..." />;
   }
 
 

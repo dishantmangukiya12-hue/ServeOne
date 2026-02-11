@@ -7,6 +7,8 @@ import {
   useScroll,
   useTransform,
   useInView,
+  useMotionValue,
+  animate,
   type MotionValue,
 } from "framer-motion";
 import {
@@ -29,7 +31,6 @@ import {
   Star,
   Crown,
   Building2,
-  ChevronUp,
 } from "lucide-react";
 import { PLANS, type Plan, type PlanId, FEATURE_LABELS, type FeatureKey, FREE_TRIAL_DAYS } from "@/lib/plans";
 
@@ -131,13 +132,13 @@ function ShutterSlat({
   const endRotate = startRotate + 0.35;
 
   const rotateX = useTransform(progress, [startRotate, endRotate], [0, 110]);
-  const opacity = useTransform(progress, [startRotate, endRotate - 0.05, endRotate], [1, 1, 0]);
+  const slatOpacity = useTransform(progress, [startRotate, endRotate - 0.05, endRotate], [1, 1, 0]);
 
   return (
     <motion.div
       style={{
         rotateX,
-        opacity,
+        opacity: slatOpacity,
         transformOrigin: "top center",
         backfaceVisibility: "hidden",
         backgroundColor: SLAT_COLORS[index] || "#C8C4BC",
@@ -274,40 +275,37 @@ const planIcons: Record<PlanId, React.ReactNode> = {
 
 // === MAIN PAGE ===
 export default function LandingPage() {
-  // --- Shutter scroll animation ---
-  const shutterRef = useRef<HTMLDivElement>(null);
+  // --- Shutter auto-open animation ---
   const [shutterOpen, setShutterOpen] = useState(false);
   const [showShutter, setShowShutter] = useState(true);
+  const shutterProgress = useMotionValue(0);
 
   // Respect reduced motion preference
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setShowShutter(false);
       setShutterOpen(true);
+      return;
     }
-  }, []);
+    // Auto-animate shutter opening after a brief pause
+    const timeout = setTimeout(() => {
+      animate(shutterProgress, 1, {
+        duration: 2.2,
+        ease: [0.4, 0, 0.2, 1],
+        onComplete: () => {
+          setShutterOpen(true);
+          setShowShutter(false);
+        },
+      });
+    }, 800);
+    return () => clearTimeout(timeout);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { scrollYProgress: shutterProgress } = useScroll({
-    target: shutterRef,
-    offset: ["start start", "end start"],
-  });
-
-  // Whole shutter also rises slightly as slats curl
+  // Whole shutter rises as slats curl
   const shutterY = useTransform(shutterProgress, [0, 0.5, 1], ["0%", "-10%", "-30%"]);
 
-  // Handle bar fades out early (since bottom slats curl first)
+  // Handle bar fades out early
   const handleBarOpacity = useTransform(shutterProgress, [0, 0.15, 0.3], [1, 0.5, 0]);
-
-  // Detect when fully open
-  useEffect(() => {
-    const unsubscribe = shutterProgress.on("change", (v) => {
-      if (v >= 0.95 && !shutterOpen) {
-        setShutterOpen(true);
-        setShowShutter(false);
-      }
-    });
-    return unsubscribe;
-  }, [shutterProgress, shutterOpen]);
 
   // --- Hero parallax ---
   const heroRef = useRef(null);
@@ -325,9 +323,6 @@ export default function LandingPage() {
       {/* ====== REAL 3D SHOP SHUTTER ====== */}
       {showShutter && (
         <>
-          {/* Scroll trigger zone */}
-          <div ref={shutterRef} className="h-screen w-full" aria-hidden="true" />
-
           {/* 3D Shutter with individual rotating slats */}
           <motion.div
             style={{ y: shutterY }}
@@ -349,7 +344,7 @@ export default function LandingPage() {
                 <ShutterSlat key={i} progress={shutterProgress} index={i} />
               ))}
 
-              {/* Bottom handle bar — stays flat, fades out as bottom slats curl */}
+              {/* Bottom handle bar — stays flat, fades out as slats curl */}
               <motion.div className="w-full flex-shrink-0" style={{ opacity: handleBarOpacity, backgroundColor: "#8A8478" }}>
                 <div
                   className="w-full h-12 flex items-center justify-center"
@@ -359,20 +354,6 @@ export default function LandingPage() {
                     <div className="w-36 h-[3px] rounded-sm" style={{ backgroundColor: "#706860" }} />
                     <div className="w-28 h-[2px] rounded-sm" style={{ backgroundColor: "#807870" }} />
                   </div>
-                </div>
-                <div
-                  className="w-full py-3 flex flex-col items-center gap-1.5"
-                  style={{ background: "linear-gradient(to bottom, #706858, #605848)" }}
-                >
-                  <motion.div
-                    animate={{ y: [0, 5, 0] }}
-                    transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
-                  >
-                    <ChevronUp className="h-5 w-5 rotate-180" style={{ color: "#D0C8B8" }} />
-                  </motion.div>
-                  <p className="text-xs font-medium tracking-widest uppercase" style={{ color: "#C0B8A8" }}>
-                    Scroll to open
-                  </p>
                 </div>
               </motion.div>
             </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoading } from '@/components/PageLoading';
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,7 +39,7 @@ export default function Inventory() {
   const items = inventoryData?.items || [];
   const settings = { enableInventory: restaurantData?.settings?.enableInventory ?? false };
 
-  if (!restaurant) return null;
+  if (!restaurant) return <PageLoading message="Loading inventory..." />;
 
   const handleToggleInventory = (enabled: boolean) => {
     updateRestaurant.mutate(
