@@ -37,6 +37,7 @@ export const updateRestaurantSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   mobile: mobileField.optional(),
   address: z.string().max(500).nullable().optional(),
+  settings: z.record(z.unknown()).optional(),
 }).refine(data => Object.keys(data).length > 0, { message: "No updates provided" });
 
 export const updatePasscodeSchema = z.object({

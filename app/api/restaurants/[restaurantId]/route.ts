@@ -64,9 +64,22 @@ export async function PATCH(
     return NextResponse.json({ error: parsed.error.errors }, { status: 400 });
   }
 
+  const { settings, ...rest } = parsed.data as any;
+
+  // If settings are provided, merge with existing settings instead of overwriting
+  let updateData: any = { ...rest };
+  if (settings) {
+    const existing = await prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { settings: true },
+    });
+    const existingSettings = (existing?.settings as Record<string, unknown>) || {};
+    updateData.settings = { ...existingSettings, ...settings };
+  }
+
   await prisma.restaurant.update({
     where: { id: restaurantId },
-    data: parsed.data,
+    data: updateData,
   });
 
   broadcastInvalidation(restaurantId, "restaurant");

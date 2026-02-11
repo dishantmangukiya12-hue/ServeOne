@@ -607,7 +607,7 @@ export default function Dashboard() {
 
                 <p className="text-muted-foreground text-xs md:text-sm">Revenue</p>
 
-                <p className="text-xl md:text-2xl font-bold text-foreground mt-1">â‚¹{stats.todayRevenue.toLocaleString()}</p>
+                <p className="text-xl md:text-2xl font-bold text-foreground mt-1">{"\u20B9"}{stats.todayRevenue.toLocaleString()}</p>
 
                 {/* Comparison indicator */}
 
@@ -685,7 +685,7 @@ export default function Dashboard() {
 
                 <p className="text-xl md:text-2xl font-bold text-foreground mt-1">
 
-                  â‚¹{stats.avgOrderValue}
+                  {"\u20B9"}{stats.avgOrderValue}
 
                 </p>
 
@@ -875,7 +875,7 @@ export default function Dashboard() {
 
                 <div className="text-center">
 
-                  <div className="text-5xl mb-3">ðŸ“Š</div>
+                  <div className="text-5xl mb-3">{"\uD83D\uDCCA"}</div>
 
                   <p>No sales data for {dateRange.toLowerCase()}</p>
 
@@ -887,7 +887,7 @@ export default function Dashboard() {
 
                   >
 
-                    Create your first order â†’
+                    Create your first order →
 
                   </button>
 
@@ -977,7 +977,7 @@ export default function Dashboard() {
 
                     <span className="capitalize text-muted-foreground">{channel.replace(/([A-Z])/g, ' $1').trim()}</span>
 
-                    <span className="font-medium">â‚¹{stat.amount.toLocaleString()}</span>
+                    <span className="font-medium">{"\u20B9"}{stat.amount.toLocaleString()}</span>
 
                   </div>
 
@@ -1025,7 +1025,7 @@ export default function Dashboard() {
 
                         <td className="text-muted-foreground">{item.quantity}</td>
 
-                        <td className="font-medium text-foreground">â‚¹{item.revenue.toLocaleString()}</td>
+                        <td className="font-medium text-foreground">{"\u20B9"}{item.revenue.toLocaleString()}</td>
 
                       </tr>
 
@@ -1081,7 +1081,7 @@ export default function Dashboard() {
 
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
 
-                    formatter={(value: number) => `â‚¹${value.toLocaleString()}`}
+                    formatter={(value: number) => `\u20B9${value.toLocaleString()}`}
 
                   />
 
@@ -1115,7 +1115,7 @@ export default function Dashboard() {
 
             >
 
-              View All â†’
+              View All →
 
             </button>
 
@@ -1157,7 +1157,7 @@ export default function Dashboard() {
 
                       <td className="text-muted-foreground">{order.items.length} items</td>
 
-                      <td className="font-medium text-foreground">â‚¹{order.total.toLocaleString()}</td>
+                      <td className="font-medium text-foreground">{"\u20B9"}{order.total.toLocaleString()}</td>
 
                       <td>
 

@@ -222,7 +222,7 @@ export default function BillingPage() {
               </div>
               <p className="text-sm text-muted-foreground">
                 {currentPlanId === "starter"
-                  ? "Free plan with basic features"
+                  ? `Free ${FREE_TRIAL_DAYS}-day demo with all features`
                   : billing?.planExpiresAt
                     ? `${isExpired ? "Expired" : "Renews"} on ${new Date(billing.planExpiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`
                     : "Active subscription"}
@@ -361,7 +361,7 @@ export default function BillingPage() {
                 </Button>
               ) : plan.id === "starter" ? (
                 <Button className="w-full" variant="outline" disabled>
-                  Free Forever
+                  Free {FREE_TRIAL_DAYS}-Day Demo
                 </Button>
               ) : isDowngrade ? (
                 <Button className="w-full" variant="outline" disabled>

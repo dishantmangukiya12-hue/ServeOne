@@ -27,24 +27,27 @@ export interface Plan {
   popular?: boolean;
 }
 
+// All plans get unlimited access to all features.
+// Demo (starter) = free 30-day trial with full access.
+// Paid plans: monthly, 6-monthly, yearly billing.
 export const PLANS: Record<PlanId, Plan> = {
   starter: {
     id: 'starter',
-    name: 'Starter',
+    name: 'Demo',
     price: 0,
-    description: 'Perfect for small restaurants getting started',
+    description: 'Free 30-day trial with full access to all features',
     features: {
-      maxTables: 5,
-      maxMenuItems: 50,
-      maxUsers: 2,
-      qrOrdering: false,
-      kds: false,
+      maxTables: 999,
+      maxMenuItems: 9999,
+      maxUsers: 100,
+      qrOrdering: true,
+      kds: true,
       reports: true,
-      inventory: false,
-      loyalty: false,
-      reservations: false,
+      inventory: true,
+      loyalty: true,
+      reservations: true,
       expenses: true,
-      customReceipts: false,
+      customReceipts: true,
       multiLocation: false,
       apiAccess: false,
       prioritySupport: false,
@@ -57,9 +60,9 @@ export const PLANS: Record<PlanId, Plan> = {
     description: 'Everything you need to run your restaurant',
     popular: true,
     features: {
-      maxTables: 100,
-      maxMenuItems: 500,
-      maxUsers: 20,
+      maxTables: 999,
+      maxMenuItems: 9999,
+      maxUsers: 100,
       qrOrdering: true,
       kds: true,
       reports: true,
@@ -97,7 +100,7 @@ export const PLANS: Record<PlanId, Plan> = {
   },
 };
 
-export const FREE_TRIAL_DAYS = 14;
+export const FREE_TRIAL_DAYS = 30;
 
 export function getPlan(planId: PlanId | string | undefined): Plan {
   return PLANS[(planId as PlanId) || 'starter'] || PLANS.starter;
