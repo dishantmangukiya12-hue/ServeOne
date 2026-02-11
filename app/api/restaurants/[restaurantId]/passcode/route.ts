@@ -1,8 +1,10 @@
+
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import bcrypt from "bcryptjs";
+import { updatePasscodeSchema } from "@/lib/validations";
 
 export async function PATCH(
   request: Request,
@@ -20,22 +22,14 @@ export async function PATCH(
   }
 
   const body = await request.json();
-  const passcode = body?.passcode as string | undefined;
+  
+  const parsed = updatePasscodeSchema.safeParse(body);
 
-  if (!passcode || passcode.length < 4) {
-    return NextResponse.json(
-      { error: "Passcode must be at least 4 characters" },
-      { status: 400 }
-    );
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.errors }, { status: 400 });
   }
 
-  // SEC: Cap length to prevent bcrypt hash DoS (bcrypt truncates at 72 bytes anyway)
-  if (passcode.length > 128) {
-    return NextResponse.json(
-      { error: "Passcode must be at most 128 characters" },
-      { status: 400 }
-    );
-  }
+  const { passcode } = parsed.data;
 
   // Verify restaurant exists
   const restaurant = await prisma.restaurant.findUnique({
@@ -61,3 +55,4 @@ export async function PATCH(
 
   return NextResponse.json({ ok: true });
 }
+

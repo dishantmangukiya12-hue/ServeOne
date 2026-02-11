@@ -31,6 +31,17 @@ function getClientIp(req: NextRequest): string {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // General API rate limiter: 60 requests per minute per IP
+  if (pathname.startsWith("/api/")) {
+    const ip = getClientIp(req);
+    if (!checkRateLimit(`api:${ip}`, 60, 60000)) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429 }
+      );
+    }
+  }
+
   // Rate limit auth endpoints: 10 attempts per minute per IP
   if (pathname.startsWith("/api/auth/callback/credentials")) {
     const ip = getClientIp(req);

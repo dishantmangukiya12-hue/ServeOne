@@ -4,22 +4,18 @@ import { Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { FREE_TRIAL_DAYS } from "@/lib/plans";
+import { createRestaurantSchema } from "@/lib/validations";
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const restaurant = body?.restaurant as {
-    id: string;
-    name: string;
-    mobile: string;
-    passcode: string;
-    address?: string;
-    createdAt: string;
-  } | undefined;
-  const data = body?.data as Record<string, unknown> | undefined;
 
-  if (!restaurant || !data) {
-    return NextResponse.json({ error: "Missing restaurant data" }, { status: 400 });
+  const parsed = createRestaurantSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.errors }, { status: 400 });
   }
+
+  const { restaurant, data } = parsed.data;
 
   const existing = await prisma.restaurant.findUnique({
     where: { mobile: restaurant.mobile },

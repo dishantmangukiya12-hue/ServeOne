@@ -2,6 +2,7 @@
  * Lightweight fetch wrapper for API calls.
  * Throws on non-2xx responses with parsed error messages.
  */
+import { getCsrfToken } from "next-auth/react";
 
 export class ApiError extends Error {
   status: number;
@@ -26,6 +27,18 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return res.json();
 }
 
+async function getHeaders(includeContentHeader = true) {
+  const csrfToken = await getCsrfToken();
+  const headers: Record<string, string> = {};
+  if (csrfToken) {
+    headers["X-CSRF-Token"] = csrfToken;
+  }
+  if (includeContentHeader) {
+    headers["Content-Type"] = "application/json";
+  }
+  return headers;
+}
+
 export const api = {
   async get<T>(url: string): Promise<T> {
     const res = await fetch(url);
@@ -35,7 +48,7 @@ export const api = {
   async post<T>(url: string, body?: unknown): Promise<T> {
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await getHeaders(),
       body: body ? JSON.stringify(body) : undefined,
     });
     return handleResponse<T>(res);
@@ -44,7 +57,7 @@ export const api = {
   async put<T>(url: string, body?: unknown): Promise<T> {
     const res = await fetch(url, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: await getHeaders(),
       body: body ? JSON.stringify(body) : undefined,
     });
     return handleResponse<T>(res);
@@ -53,14 +66,17 @@ export const api = {
   async patch<T>(url: string, body?: unknown): Promise<T> {
     const res = await fetch(url, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: await getHeaders(),
       body: body ? JSON.stringify(body) : undefined,
     });
     return handleResponse<T>(res);
   },
 
   async delete<T>(url: string): Promise<T> {
-    const res = await fetch(url, { method: "DELETE" });
+    const res = await fetch(url, {
+      method: "DELETE",
+      headers: await getHeaders(false),
+    });
     return handleResponse<T>(res);
   },
 };

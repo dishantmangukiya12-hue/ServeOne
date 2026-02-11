@@ -1,8 +1,10 @@
+
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { broadcastInvalidation } from "@/lib/sse";
+import { updateRestaurantSchema } from "@/lib/validations";
 
 // GET /api/restaurants/[restaurantId] - Get restaurant details
 export async function GET(
@@ -52,23 +54,19 @@ export async function PATCH(
 
   const body = await request.json();
 
-  const updateData: Record<string, unknown> = {};
+  const parsed = updateRestaurantSchema.safeParse(body);
 
-  if (body?.name) updateData.name = body.name;
-  if (body?.mobile) updateData.mobile = body.mobile;
-  if (body?.address !== undefined) updateData.address = body.address;
-  if (body?.settings !== undefined) updateData.settings = body.settings;
-
-  if (Object.keys(updateData).length === 0) {
-    return NextResponse.json({ error: "No updates provided" }, { status: 400 });
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.errors }, { status: 400 });
   }
 
   await prisma.restaurant.update({
     where: { id: restaurantId },
-    data: updateData,
+    data: parsed.data,
   });
 
   broadcastInvalidation(restaurantId, "restaurant");
 
   return NextResponse.json({ ok: true });
 }
+
