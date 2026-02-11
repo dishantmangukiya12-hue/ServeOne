@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getApiSession } from "@/lib/api-auth";
 import { broadcastInvalidation } from "@/lib/sse";
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
+  const session = await getApiSession(request);
   const { id } = await params;
   const body = await request.json();
 
@@ -47,10 +46,10 @@ export async function PUT(
 
 // DELETE /api/menu/categories/[id] - Delete category
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
+  const session = await getApiSession(request);
   const { id } = await params;
 
   try {

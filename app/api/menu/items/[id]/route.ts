@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getApiSession } from "@/lib/api-auth";
 import { broadcastInvalidation } from "@/lib/sse";
 import { updateMenuItemSchema } from "@/lib/validations";
 import { verifyCsrfToken } from "@/lib/csrf";
@@ -15,7 +14,7 @@ export async function PUT(
     return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
   }
 
-  const session = await getServerSession(authOptions);
+  const session = await getApiSession(request);
   const { id } = await params;
   const body = await request.json();
 
@@ -66,7 +65,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
   }
 
-  const session = await getServerSession(authOptions);
+  const session = await getApiSession(request);
   const { id } = await params;
 
   try {

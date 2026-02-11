@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getApiSession } from "@/lib/api-auth";
 import { prisma } from '@/lib/prisma';
 import { getRazorpay, getRazorpayPlanId } from '@/lib/razorpay';
 import type { PlanId } from '@/lib/plans';
@@ -13,7 +12,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getApiSession(request);
     if (!session?.user?.restaurantId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -79,7 +78,7 @@ export async function DELETE(request: Request) {
   }
 
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getApiSession(request);
     if (!session?.user?.restaurantId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

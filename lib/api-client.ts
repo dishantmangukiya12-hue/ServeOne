@@ -27,8 +27,23 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return res.json();
 }
 
+// Cache CSRF token to avoid extra round-trip on every mutation
+let cachedCsrfToken: string | null = null;
+let csrfTokenExpiresAt = 0;
+const CSRF_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+async function getCachedCsrfToken(): Promise<string | null> {
+  const now = Date.now();
+  if (cachedCsrfToken && now < csrfTokenExpiresAt) {
+    return cachedCsrfToken;
+  }
+  cachedCsrfToken = await getCsrfToken() ?? null;
+  csrfTokenExpiresAt = now + CSRF_CACHE_TTL;
+  return cachedCsrfToken;
+}
+
 async function getHeaders(includeContentHeader = true) {
-  const csrfToken = await getCsrfToken();
+  const csrfToken = await getCachedCsrfToken();
   const headers: Record<string, string> = {};
   if (csrfToken) {
     headers["X-CSRF-Token"] = csrfToken;

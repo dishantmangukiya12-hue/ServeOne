@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getApiSession } from "@/lib/api-auth";
 import { createOrderSchema } from "@/lib/validations";
 import { broadcastInvalidation } from "@/lib/sse";
 import { verifyCsrfToken } from "@/lib/csrf";
 
 // GET /api/orders?restaurantId=xxx&status=xxx&date=xxx - List orders with filters
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getApiSession(request);
   const { searchParams } = new URL(request.url);
   const restaurantId = searchParams.get("restaurantId");
   const status = searchParams.get("status");
@@ -76,7 +75,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
   }
 
-  const session = await getServerSession(authOptions);
+  const session = await getApiSession(request);
   const body = await request.json();
 
   const parsed = createOrderSchema.safeParse(body);

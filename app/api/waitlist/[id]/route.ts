@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getApiSession } from "@/lib/api-auth";
 import { broadcastInvalidation } from "@/lib/sse";
 import { updateWaitlistSchema } from "@/lib/validations";
 import { verifyCsrfToken } from "@/lib/csrf";
@@ -14,7 +13,7 @@ export async function PUT(
     return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
   }
 
-  const session = await getServerSession(authOptions);
+  const session = await getApiSession(request);
   const { id } = await params;
 
   if (!session?.user?.restaurantId) {
@@ -69,7 +68,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
   }
 
-  const session = await getServerSession(authOptions);
+  const session = await getApiSession(request);
   const { id } = await params;
 
   if (!session?.user?.restaurantId) {

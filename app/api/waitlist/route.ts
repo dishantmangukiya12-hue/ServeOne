@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getApiSession } from "@/lib/api-auth";
 import { createWaitlistSchema } from "@/lib/validations";
 import { broadcastInvalidation } from "@/lib/sse";
 import { verifyCsrfToken } from "@/lib/csrf";
 
 // GET /api/waitlist?restaurantId=xxx - List active waitlist entries
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getApiSession(request);
   const { searchParams } = new URL(request.url);
   const restaurantId = searchParams.get("restaurantId");
 
@@ -49,7 +48,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
   }
 
-  const session = await getServerSession(authOptions);
+  const session = await getApiSession(request);
   const body = await request.json();
 
   const parsed = createWaitlistSchema.safeParse(body);

@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-
+import { getApiSession } from "@/lib/api-auth";
 // GET /api/reports/summary?restaurantId=xxx&date=xxx - Get daily summary stats
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getApiSession(request);
   const { searchParams } = new URL(request.url);
   const restaurantId = searchParams.get("restaurantId");
   const date = searchParams.get("date"); // YYYY-MM-DD format

@@ -1,16 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-
+import { getApiSession } from "@/lib/api-auth";
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ restaurantId: string }> }
 ) {
   const { restaurantId } = await params;
 
   // SEC: Require authentication — public QR ordering uses /api/public/restaurant instead 
-  const session = await getServerSession(authOptions);
+  const session = await getApiSession(request);
   if (!session?.user?.restaurantId || session.user.restaurantId !== restaurantId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -33,7 +31,7 @@ export async function PUT(
   const { restaurantId } = await params;
 
   // Require authentication for write operations
-  const session = await getServerSession(authOptions);
+  const session = await getApiSession(request);
   if (!session?.user?.restaurantId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

@@ -1,8 +1,7 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getApiSession } from "@/lib/api-auth";
 import bcrypt from "bcryptjs";
 import { updatePasscodeSchema } from "@/lib/validations";
 import { verifyCsrfToken } from "@/lib/csrf";
@@ -18,7 +17,7 @@ export async function PATCH(
   const { restaurantId } = await params;
 
   // SEC: Require authentication — only admin can change restaurant passcode
-  const session = await getServerSession(authOptions);
+  const session = await getApiSession(request);
   if (!session?.user?.restaurantId || session.user.restaurantId !== restaurantId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

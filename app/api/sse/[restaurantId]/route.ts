@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getApiSession } from "@/lib/api-auth";
 import { addConnection, removeConnection } from "@/lib/sse";
 
 export const dynamic = "force-dynamic";
@@ -7,13 +6,13 @@ export const dynamic = "force-dynamic";
 const HEARTBEAT_INTERVAL = 25_000; // 25 seconds
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ restaurantId: string }> }
 ) {
   const { restaurantId } = await params;
 
   // Auth check
-  const session = await getServerSession(authOptions);
+  const session = await getApiSession(request);
   if (!session?.user?.restaurantId || session.user.restaurantId !== restaurantId) {
     return new Response("Unauthorized", { status: 401 });
   }

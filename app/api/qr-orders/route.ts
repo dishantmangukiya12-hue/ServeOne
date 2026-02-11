@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getApiSession } from "@/lib/api-auth";
 import { createQROrderSchema } from "@/lib/validations";
 import { broadcastInvalidation } from "@/lib/sse";
 import { verifyCsrfToken } from "@/lib/csrf";
 
 // GET /api/qr-orders?restaurantId=xxx - List pending QR orders (staff only)
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getApiSession(request);
   const { searchParams } = new URL(request.url);
   const restaurantId = searchParams.get("restaurantId");
 

@@ -1,20 +1,19 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getApiSession } from "@/lib/api-auth";
 import { broadcastInvalidation } from "@/lib/sse";
 import { updateRestaurantSchema } from "@/lib/validations";
 import { verifyCsrfToken } from "@/lib/csrf";
 
 // GET /api/restaurants/[restaurantId] - Get restaurant details
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ restaurantId: string }> }
 ) {
   const { restaurantId } = await params;
 
-  const session = await getServerSession(authOptions);
+  const session = await getApiSession(request);
   if (!session?.user?.restaurantId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -49,7 +48,7 @@ export async function PATCH(
   const { restaurantId } = await params;
 
   // Require authentication
-  const session = await getServerSession(authOptions);
+  const session = await getApiSession(request);
   if (!session?.user?.restaurantId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
