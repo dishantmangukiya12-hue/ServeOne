@@ -146,7 +146,9 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (token && isPublicRoute) {
+  const authOnlyRoutes = ["/login", "/register"];
+  const isAuthOnlyRoute = authOnlyRoutes.some((route) => pathname.startsWith(route));
+  if (token && isAuthOnlyRoute) {
     return NextResponse.redirect(new URL("/home", req.url));
   }
 

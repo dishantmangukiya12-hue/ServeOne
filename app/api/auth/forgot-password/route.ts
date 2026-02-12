@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyCsrfToken } from "@/lib/csrf";
 
 // In-memory OTP store (in production, use Redis or database)
 const otpStore = new Map<string, { otp: string; expiry: number; restaurantId: string; attempts: number }>();
@@ -10,10 +9,6 @@ export { otpStore };
 
 // POST /api/auth/forgot-password
 export async function POST(request: Request) {
-  if (!await verifyCsrfToken(request)) {
-    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
-  }
-
   const body = await request.json();
   const { mobile } = body;
 
