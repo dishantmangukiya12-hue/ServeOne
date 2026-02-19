@@ -200,31 +200,33 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Update table status if order was active or pending_payment
-    if (order.status !== "closed" && order.status !== "cancelled") {
-      await prisma.table.update({
-        where: { id: order.tableId },
-        data: { status: "available", currentOrderId: null },
-      });
-    }
+    // Atomically cancel order and free table
+    const auditEntry = {
+      id: `audit_${Date.now()}`,
+      action: "ORDER_CANCELLED",
+      performedBy: session?.user?.name || "System",
+      performedAt: new Date().toISOString(),
+      details: "Order cancelled",
+    };
 
-    // Soft delete by marking as cancelled
-    const updated = await prisma.order.update({
-      where: { id },
-      data: {
-        status: "cancelled",
-        deletedAt: new Date(),
-        auditLog: [
-          ...(Array.isArray(order.auditLog) ? order.auditLog : []),
-          {
-            id: `audit_${Date.now()}`,
-            action: "ORDER_CANCELLED",
-            performedBy: session?.user?.name || "System",
-            performedAt: new Date().toISOString(),
-            details: "Order cancelled",
-          },
-        ],
-      },
+    const updated = await prisma.$transaction(async (tx) => {
+      if (order.status !== "closed" && order.status !== "cancelled") {
+        await tx.table.update({
+          where: { id: order.tableId },
+          data: { status: "available", currentOrderId: null },
+        });
+      }
+      return tx.order.update({
+        where: { id },
+        data: {
+          status: "cancelled",
+          deletedAt: new Date(),
+          auditLog: [
+            ...(Array.isArray(order.auditLog) ? order.auditLog : []),
+            auditEntry,
+          ],
+        },
+      });
     });
 
     broadcastInvalidation(order.restaurantId, "orders");
@@ -283,21 +285,22 @@ export async function POST(
       details: `Payment settled via ${paymentMethod} for ₹${amount || order.total}`,
     });
 
-    // Update order to closed status
-    const updated = await prisma.order.update({
-      where: { id },
-      data: {
-        status: "closed",
-        paymentMethod,
-        closedAt: new Date(),
-        auditLog,
-      },
-    });
-
-    // Free up the table
-    await prisma.table.update({
-      where: { id: order.tableId },
-      data: { status: "available", currentOrderId: null },
+    // Atomically close order and free table
+    const updated = await prisma.$transaction(async (tx) => {
+      const settled = await tx.order.update({
+        where: { id },
+        data: {
+          status: "closed",
+          paymentMethod,
+          closedAt: new Date(),
+          auditLog,
+        },
+      });
+      await tx.table.update({
+        where: { id: order.tableId },
+        data: { status: "available", currentOrderId: null },
+      });
+      return settled;
     });
 
     broadcastInvalidation(order.restaurantId, "orders");
