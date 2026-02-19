@@ -63,7 +63,7 @@ export const createOrderSchema = z.object({
 
 export const updateOrderSchema = z.object({
   items: z.array(orderItemSchema).max(200).optional(),
-  status: z.enum(["active", "completed", "cancelled", "pending"]).optional(),
+  status: z.enum(["active", "preparing", "ready", "served", "pending_payment", "closed", "cancelled"]).optional(),
   paymentMethod: z.string().max(50).nullable().optional(),
   subTotal: z.number().min(0).optional(),
   tax: z.number().min(0).optional(),

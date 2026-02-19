@@ -116,9 +116,25 @@ export async function PUT(
       updateData.status = status;
     }
 
-    // Handle table transfer
-    if (newTableId && newTableId !== order.tableId) {
-      const newTable = await prisma.table.findUnique({ where: { id: newTableId } });
+    // Build audit log entry
+    const auditLog = Array.isArray(order.auditLog) ? order.auditLog : [];
+    const isTableTransfer = !!newTableId && newTableId !== order.tableId;
+    auditLog.push({
+      id: `audit_${Date.now()}`,
+      action: isTableTransfer ? "TABLE_CHANGED" : "ORDER_UPDATED",
+      performedBy: session?.user?.name || "System",
+      performedAt: new Date().toISOString(),
+      details: isTableTransfer
+        ? `Table changed from ${order.tableId} to ${newTableId}`
+        : `Order updated`,
+    });
+    updateData.auditLog = auditLog;
+
+    let updated;
+
+    if (isTableTransfer) {
+      // Validate target table before entering transaction
+      const newTable = await prisma.table.findUnique({ where: { id: newTableId! } });
       if (!newTable)
         return NextResponse.json({ error: "Target table not found" }, { status: 404 });
       if (newTable.restaurantId !== order.restaurantId)
@@ -126,41 +142,30 @@ export async function PUT(
       if (newTable.status !== "available")
         return NextResponse.json({ error: "Target table is not available" }, { status: 409 });
 
-      // Atomically free old table and occupy new table
-      await prisma.$transaction([
-        prisma.table.update({
-          where: { id: order.tableId },
-          data: { status: "available", currentOrderId: null },
-        }),
-        prisma.table.update({
-          where: { id: newTableId },
-          data: { status: "occupied", currentOrderId: order.id },
-        }),
-      ]);
-
       updateData.tableId = newTableId;
+
+      // Single transaction: free old table + claim new table + update order atomically
+      try {
+        updated = await prisma.$transaction(async (tx) => {
+          await tx.table.update({
+            where: { id: order.tableId },
+            data: { status: "available", currentOrderId: null },
+          });
+          await tx.table.update({
+            where: { id: newTableId! },
+            data: { status: "occupied", currentOrderId: order.id },
+          });
+          return tx.order.update({ where: { id }, data: updateData });
+        });
+      } catch (txError) {
+        return NextResponse.json({ error: "Table transfer failed. Please try again." }, { status: 500 });
+      }
+    } else {
+      updated = await prisma.order.update({ where: { id }, data: updateData });
     }
 
-    // Add audit log entry
-    const auditLog = Array.isArray(order.auditLog) ? order.auditLog : [];
-    auditLog.push({
-      id: `audit_${Date.now()}`,
-      action: newTableId && newTableId !== order.tableId ? "TABLE_CHANGED" : "ORDER_UPDATED",
-      performedBy: session?.user?.name || "System",
-      performedAt: new Date().toISOString(),
-      details: newTableId && newTableId !== order.tableId
-        ? `Table changed from ${order.tableId} to ${newTableId}`
-        : `Order updated`,
-    });
-    updateData.auditLog = auditLog;
-
-    const updated = await prisma.order.update({
-      where: { id },
-      data: updateData,
-    });
-
     broadcastInvalidation(order.restaurantId, "orders");
-    if (status || (newTableId && newTableId !== order.tableId))
+    if (status || isTableTransfer)
       broadcastInvalidation(order.restaurantId, "tables");
 
     return NextResponse.json({ order: updated });
