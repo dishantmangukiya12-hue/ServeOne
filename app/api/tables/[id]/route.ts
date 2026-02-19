@@ -2,6 +2,26 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-auth";
 import { broadcastInvalidation } from "@/lib/sse";
+
+// GET /api/tables/[id]
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getApiSession(request);
+  const { id } = await params;
+
+  try {
+    const table = await prisma.table.findUnique({ where: { id } });
+    if (!table) return NextResponse.json({ error: "Table not found" }, { status: 404 });
+    if (!session?.user?.restaurantId || session.user.restaurantId !== table.restaurantId)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ table });
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to fetch table" }, { status: 500 });
+  }
+}
+
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

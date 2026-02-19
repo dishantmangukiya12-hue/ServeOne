@@ -85,18 +85,12 @@ export async function PUT(
       tax,
       discount,
       total,
+      tableId: newTableId,
     } = parsed.data;
 
     const updateData: any = {};
 
     if (items !== undefined) updateData.items = items;
-    // Use body for fields not in schema or if schema is partial? 
-    // updateOrderSchema in lib/validations.ts doesn't have customer fields or adults/kids.
-    // Let's rely on what IS in the schema for now, but the existing code updates other fields.
-    // The schema SHOULD be updated to include these fields if they are allowed to be updated.
-    // For now, I will keep the manual extraction for fields NOT in the schema to avoid breaking functionality,
-    // BUT I will use parsed.data for fields that ARE in the schema.
-    
     if (body.customerName !== undefined) updateData.customerName = body.customerName;
     if (body.customerMobile !== undefined) updateData.customerMobile = body.customerMobile;
     if (body.adults !== undefined) updateData.adults = body.adults;
@@ -122,14 +116,41 @@ export async function PUT(
       updateData.status = status;
     }
 
+    // Handle table transfer
+    if (newTableId && newTableId !== order.tableId) {
+      const newTable = await prisma.table.findUnique({ where: { id: newTableId } });
+      if (!newTable)
+        return NextResponse.json({ error: "Target table not found" }, { status: 404 });
+      if (newTable.restaurantId !== order.restaurantId)
+        return NextResponse.json({ error: "Target table belongs to a different restaurant" }, { status: 403 });
+      if (newTable.status !== "available")
+        return NextResponse.json({ error: "Target table is not available" }, { status: 409 });
+
+      // Atomically free old table and occupy new table
+      await prisma.$transaction([
+        prisma.table.update({
+          where: { id: order.tableId },
+          data: { status: "available", currentOrderId: null },
+        }),
+        prisma.table.update({
+          where: { id: newTableId },
+          data: { status: "occupied", currentOrderId: order.id },
+        }),
+      ]);
+
+      updateData.tableId = newTableId;
+    }
+
     // Add audit log entry
     const auditLog = Array.isArray(order.auditLog) ? order.auditLog : [];
     auditLog.push({
       id: `audit_${Date.now()}`,
-      action: "ORDER_UPDATED",
+      action: newTableId && newTableId !== order.tableId ? "TABLE_CHANGED" : "ORDER_UPDATED",
       performedBy: session?.user?.name || "System",
       performedAt: new Date().toISOString(),
-      details: `Order updated`,
+      details: newTableId && newTableId !== order.tableId
+        ? `Table changed from ${order.tableId} to ${newTableId}`
+        : `Order updated`,
     });
     updateData.auditLog = auditLog;
 
@@ -139,7 +160,8 @@ export async function PUT(
     });
 
     broadcastInvalidation(order.restaurantId, "orders");
-    if (status) broadcastInvalidation(order.restaurantId, "tables");
+    if (status || (newTableId && newTableId !== order.tableId))
+      broadcastInvalidation(order.restaurantId, "tables");
 
     return NextResponse.json({ order: updated });
   } catch (error) {

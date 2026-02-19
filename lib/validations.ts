@@ -71,6 +71,7 @@ export const updateOrderSchema = z.object({
   total: z.number().min(0).optional(),
   closedAt: z.string().max(50).nullable().optional(),
   auditLog: z.array(z.record(z.unknown())).max(500).optional(),
+  tableId: z.string().min(1).max(200).optional(),
 });
 
 // Menu
