@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-auth";
 import bcrypt from "bcryptjs";
 import { broadcastInvalidation } from "@/lib/sse";
+import { verifyCsrfToken } from "@/lib/csrf";
 
 const ALLOWED_ROLES = ["admin", "manager", "waiter", "cashier", "kitchen", "staff"];
 
@@ -11,6 +12,9 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!await verifyCsrfToken(request))
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+
   const session = await getApiSession(request);
   const { id } = await params;
   const body = await request.json();

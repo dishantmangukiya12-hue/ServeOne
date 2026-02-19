@@ -34,15 +34,23 @@ export async function GET(request: Request) {
     }
 
     if (startDate && endDate) {
+      if (isNaN(Date.parse(startDate)) || isNaN(Date.parse(endDate)))
+        return NextResponse.json({ error: "Invalid date format" }, { status: 400 });
       where.createdAt = {
         gte: new Date(startDate),
         lt: new Date(endDate),
       };
     } else if (startDate) {
+      if (isNaN(Date.parse(startDate)))
+        return NextResponse.json({ error: "Invalid startDate format" }, { status: 400 });
       where.createdAt = { gte: new Date(startDate) };
     } else if (endDate) {
+      if (isNaN(Date.parse(endDate)))
+        return NextResponse.json({ error: "Invalid endDate format" }, { status: 400 });
       where.createdAt = { lt: new Date(endDate) };
     } else if (date) {
+      if (isNaN(Date.parse(date)))
+        return NextResponse.json({ error: "Invalid date format" }, { status: 400 });
       where.createdAt = {
         gte: new Date(date),
         lt: new Date(new Date(date).getTime() + 24 * 60 * 60 * 1000),
@@ -100,42 +108,45 @@ export async function POST(request: Request) {
     // The returned value is AFTER increment, so the order number used is value - 1
     const orderNumber = updatedRestaurant.nextOrderNumber - 1;
 
-    // Create order
-    const order = await prisma.order.create({
-      data: {
-        id: `order_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-        restaurantId: data.restaurantId,
-        tableId: data.tableId,
-        customerName: data.customerName || "Guest",
-        customerMobile: data.customerMobile || "",
-        adults: data.adults || 1,
-        kids: data.kids || 0,
-        items: data.items as unknown as Prisma.InputJsonValue,
-        status: "active",
-        channel: data.channel || "dineIn",
-        subTotal: data.subTotal || 0,
-        tax: data.tax || 0,
-        discount: data.discount || 0,
-        total: data.total || 0,
-        orderNumber,
-        waiterName: data.waiterName || session?.user?.name || "System",
-        createdAt: new Date(),
-        auditLog: [
-          {
-            id: `audit_${Date.now()}`,
-            action: "ORDER_CREATED",
-            performedBy: session?.user?.name || "System",
-            performedAt: new Date().toISOString(),
-            details: `Order created with ${data.items.length} items`,
-          },
-        ],
-      },
-    });
+    // Create order and update table atomically
+    const order = await prisma.$transaction(async (tx) => {
+      const created = await tx.order.create({
+        data: {
+          id: `order_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+          restaurantId: data.restaurantId,
+          tableId: data.tableId,
+          customerName: data.customerName || "Guest",
+          customerMobile: data.customerMobile || "",
+          adults: data.adults || 1,
+          kids: data.kids || 0,
+          items: data.items as unknown as Prisma.InputJsonValue,
+          status: "active",
+          channel: data.channel || "dineIn",
+          subTotal: data.subTotal || 0,
+          tax: data.tax || 0,
+          discount: data.discount || 0,
+          total: data.total || 0,
+          orderNumber,
+          waiterName: data.waiterName || session?.user?.name || "System",
+          createdAt: new Date(),
+          auditLog: [
+            {
+              id: `audit_${Date.now()}`,
+              action: "ORDER_CREATED",
+              performedBy: session?.user?.name || "System",
+              performedAt: new Date().toISOString(),
+              details: `Order created with ${data.items.length} items`,
+            },
+          ],
+        },
+      });
 
-    // Update table status
-    await prisma.table.update({
-      where: { id: data.tableId },
-      data: { status: "occupied", currentOrderId: order.id },
+      await tx.table.update({
+        where: { id: data.tableId },
+        data: { status: "occupied", currentOrderId: created.id },
+      });
+
+      return created;
     });
 
     broadcastInvalidation(data.restaurantId, "orders");
