@@ -2,12 +2,16 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession } from "@/lib/api-auth";
 import { broadcastInvalidation } from "@/lib/sse";
+import { verifyCsrfToken } from "@/lib/csrf";
 
 // PUT /api/attendance/[id] - Check out / update attendance
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!await verifyCsrfToken(request))
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+
   const session = await getApiSession(request);
   const { id } = await params;
 
