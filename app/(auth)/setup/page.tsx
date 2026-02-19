@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSession, getCsrfToken } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -38,6 +38,14 @@ const DEFAULT_CATEGORIES = [
   { name: "Rice & Biryani", icon: "🍚" },
   { name: "Soups", icon: "🍲" },
 ];
+
+async function getMutationHeaders(): Promise<Record<string, string>> {
+  const csrfToken = await getCsrfToken();
+  return {
+    "Content-Type": "application/json",
+    ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+  };
+}
 
 export default function SetupWizard() {
   const router = useRouter();
@@ -105,10 +113,11 @@ export default function SetupWizard() {
     if (!restaurantId || selectedCategories.length === 0) return;
     setSaving(true);
     try {
+      const categoryHeaders = await getMutationHeaders();
       for (let i = 0; i < selectedCategories.length; i++) {
         await fetch("/api/menu/categories", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: categoryHeaders,
           body: JSON.stringify({
             restaurantId,
             name: selectedCategories[i].name,
@@ -129,11 +138,16 @@ export default function SetupWizard() {
     setSaving(true);
     try {
       // Delete default tables from registration before creating new ones
-      await fetch(`/api/tables?restaurantId=${restaurantId}`, { method: "DELETE" });
+      const tableHeaders = await getMutationHeaders();
+      const csrfToken = (await getCsrfToken()) ?? "";
+      await fetch(`/api/tables?restaurantId=${restaurantId}`, {
+        method: "DELETE",
+        headers: { "X-CSRF-Token": csrfToken },
+      });
       for (let i = 1; i <= tableCount; i++) {
         await fetch("/api/tables", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: tableHeaders,
           body: JSON.stringify({
             restaurantId,
             tableNumber: i,
@@ -162,7 +176,7 @@ export default function SetupWizard() {
 
       await fetch(`/api/restaurants/${restaurantId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: await getMutationHeaders(),
         body: JSON.stringify({
           settings: {
             ...existingSettings,
@@ -188,10 +202,11 @@ export default function SetupWizard() {
     if (!restaurantId) return;
     setSaving(true);
     try {
+      const staffHeaders = await getMutationHeaders();
       for (const member of staffMembers) {
         await fetch("/api/users", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: staffHeaders,
           body: JSON.stringify({
             restaurantId,
             name: member.name,
