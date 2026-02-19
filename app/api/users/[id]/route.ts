@@ -86,6 +86,9 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!await verifyCsrfToken(request))
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+
   const session = await getApiSession(request);
   const { id } = await params;
 
