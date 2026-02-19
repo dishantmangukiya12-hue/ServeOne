@@ -90,7 +90,7 @@ export async function DELETE(
 
     const isInActiveOrder = activeOrders.some((order) => {
       const orderItems = order.items as any[];
-      return Array.isArray(orderItems) && orderItems.some((oi: any) => oi.id === id || oi.itemId === id);
+      return Array.isArray(orderItems) && orderItems.some((oi: any) => oi.menuItemId === id);
     });
 
     if (isInActiveOrder) {

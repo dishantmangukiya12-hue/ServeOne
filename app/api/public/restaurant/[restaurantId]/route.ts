@@ -25,6 +25,7 @@ export async function GET(
           restaurantId,
           available: true,
           dineIn: true,
+          deletedAt: null,
         },
         select: {
           id: true,

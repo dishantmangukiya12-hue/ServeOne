@@ -81,7 +81,7 @@ export async function POST(request: Request) {
         id: `qr_${Date.now()}`,
         restaurantId: data.restaurantId,
         tableId: data.tableId,
-        tableNumber: data.tableNumber || table.tableNumber,
+        tableNumber: table.tableNumber, // Always use server-side value, never trust client
         customerName: data.customerName || "Guest",
         customerMobile: data.customerMobile || "",
         items: data.items as unknown as Prisma.InputJsonValue,
